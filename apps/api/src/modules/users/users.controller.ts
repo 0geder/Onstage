@@ -1,0 +1,109 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuthGuard } from '../../common/auth/auth.guard';
+import { CurrentUser, type AuthUser } from '../../common/auth/auth-user';
+import { PaginationQueryDto } from '../../common/dto/pagination.dto';
+import { CompleteOnboardingDto } from './dto/onboarding.dto';
+import { PushTokenDto, UpdateProfileDto } from './dto/profile.dto';
+import { UsersService } from './users.service';
+
+@ApiTags('me')
+@ApiBearerAuth()
+@UseGuards(AuthGuard)
+@Controller('me')
+export class UsersController {
+  constructor(private readonly users: UsersService) {}
+
+  @Get()
+  @ApiOperation({
+    summary: 'Your profile',
+    description: 'The first authenticated request also provisions the account.',
+  })
+  me(@CurrentUser() user: AuthUser) {
+    return this.users.me(user.id);
+  }
+
+  @Patch()
+  @ApiOperation({ summary: 'Update your profile, home location or notification preferences' })
+  update(@Body() body: UpdateProfileDto, @CurrentUser() user: AuthUser) {
+    return this.users.updateProfile(user.id, body);
+  }
+
+  @Post('onboarding')
+  @ApiOperation({
+    summary: 'Complete onboarding',
+    description:
+      'Records genre picks and follows at least three artists before the user reaches the discovery feed, so Near You and Following are never empty on first open.',
+  })
+  onboard(@Body() body: CompleteOnboardingDto, @CurrentUser() user: AuthUser) {
+    return this.users.completeOnboarding(user.id, body);
+  }
+
+  @Get('onboarding/genres')
+  @ApiOperation({
+    summary: 'Genres to offer during onboarding',
+    description: 'Only genres the catalogue actually covers, most represented first.',
+  })
+  onboardingGenres() {
+    return this.users.popularGenres();
+  }
+
+  @Post('connections/:userId')
+  @ApiOperation({
+    summary: 'Follow another person',
+    description: 'Backs Group Plans: seeing who you know is also going to a show.',
+  })
+  followUser(@Param('userId', ParseUUIDPipe) userId: string, @CurrentUser() user: AuthUser) {
+    return this.users.followUser(user.id, userId);
+  }
+
+  @Delete('connections/:userId')
+  @ApiOperation({ summary: 'Unfollow another person' })
+  unfollowUser(@Param('userId', ParseUUIDPipe) userId: string, @CurrentUser() user: AuthUser) {
+    return this.users.unfollowUser(user.id, userId);
+  }
+
+  @Get('following')
+  @ApiOperation({ summary: 'Artists you follow' })
+  following(@Query() query: PaginationQueryDto, @CurrentUser() user: AuthUser) {
+    return this.users.following(user.id, query.limit);
+  }
+
+  @Get('plans')
+  @ApiOperation({ summary: 'Shows you are interested in or going to' })
+  plans(@Query() query: PaginationQueryDto, @CurrentUser() user: AuthUser) {
+    return this.users.upcomingPlans(user.id, query.limit);
+  }
+
+  @Get('pending-ratings')
+  @ApiOperation({
+    summary: 'Shows you attended but have not rated',
+    description: 'What the morning-after push notification links into.',
+  })
+  pendingRatings(@CurrentUser() user: AuthUser) {
+    return this.users.pendingLiveRatings(user);
+  }
+
+  @Post('push-tokens')
+  @ApiOperation({ summary: 'Register a device for push notifications' })
+  registerPush(@Body() body: PushTokenDto, @CurrentUser() user: AuthUser) {
+    return this.users.registerPushToken(user.id, body.token, body.platform);
+  }
+
+  @Delete('push-tokens')
+  @ApiOperation({ summary: 'Deregister a device' })
+  removePush(@Body() body: PushTokenDto, @CurrentUser() user: AuthUser) {
+    return this.users.removePushToken(user.id, body.token);
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "expo": {
+    "name": "Onstage",
+    "slug": "onstage",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "onstage",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0B0B0F"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "za.co.onstage",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Onstage uses your location to show gigs happening near you. You can decline and search by city instead.",
+        "LSApplicationQueriesSchemes": ["uber", "bolt", "comgooglemaps", "spotify"]
+      }
+    },
+    "android": {
+      "package": "za.co.onstage",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0B0F"
+      },
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [{ "scheme": "https", "host": "onstage.co.za", "pathPrefix": "/event" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        },
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [{ "scheme": "https", "host": "onstage.co.za", "pathPrefix": "/artist" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-localization",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Onstage uses your location to show gigs happening near you."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

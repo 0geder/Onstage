@@ -1,0 +1,724 @@
+// Onstage — primary datastore.
+//
+// PostgreSQL with PostGIS. Geography columns and full-text search vectors are
+// database-generated (see the migration SQL) and surfaced to Prisma as
+// Unsupported types: they are never written from application code, and the
+// queries that read them are raw SQL in the repositories that need them.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis, pg_trgm, unaccent, pgcrypto]
+}
+
+// ─────────────────────────── Enums ───────────────────────────
+
+enum EventStatus {
+  announced
+  on_sale
+  low_stock
+  sold_out
+  postponed
+  cancelled
+
+  @@map("event_status")
+}
+
+enum EventSourceName {
+  bandsintown
+  songkick
+  ticketmaster
+  quicket
+  webtickets
+  manual
+  artist_submitted
+
+  @@map("event_source")
+}
+
+enum LineupRole {
+  headliner
+  support
+  opener
+  dj_set
+
+  @@map("lineup_role")
+}
+
+enum TicketProvider {
+  quicket
+  webtickets
+  computicket
+  ticketmaster
+  howler
+  other
+
+  @@map("ticket_provider")
+}
+
+enum TicketAvailability {
+  available
+  low
+  sold_out
+
+  @@map("ticket_availability")
+}
+
+enum AttendanceState {
+  interested
+  going
+  attended
+
+  @@map("attendance_state")
+}
+
+enum CommentTag {
+  none
+  have_tickets
+  want_tickets
+  going
+  question
+
+  @@map("comment_tag")
+}
+
+enum ReportReason {
+  scam
+  spam
+  harassment
+  off_topic
+  offsite_payment
+  other
+
+  @@map("report_reason")
+}
+
+enum ReportStatus {
+  open
+  actioned
+  dismissed
+
+  @@map("report_status")
+}
+
+enum ModerationState {
+  visible
+  flagged
+  hidden
+
+  @@map("moderation_state")
+}
+
+enum OutboxStatus {
+  pending
+  sent
+  failed
+
+  @@map("outbox_status")
+}
+
+/// Two conversations per event: planning beforehand, recap once it has started.
+enum CommentThread {
+  planning
+  recap
+
+  @@map("comment_thread")
+}
+
+enum ConsentType {
+  location
+  push_notifications
+  marketing_email
+  analytics
+
+  @@map("consent_type")
+}
+
+// ─────────────────────────── Artist ───────────────────────────
+
+model Artist {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String   @db.VarChar(200)
+  slug         String   @unique @db.VarChar(120)
+  verified     Boolean  @default(false)
+  bio          String?
+  genres       String[] @default([])
+  homeCity     String?  @map("home_city") @db.VarChar(120)
+  country      String?  @db.VarChar(2)
+  profileImage String?  @map("profile_image")
+  bannerImage  String?  @map("banner_image")
+
+  /// { spotify, apple_music, youtube, soundcloud, audiomack }
+  streamingLinks Json @default("{}") @map("streaming_links")
+  /// { instagram, x, tiktok, facebook }
+  socialLinks    Json @default("{}") @map("social_links")
+  /// { bandsintown_id, songkick_id, spotify_id, musicbrainz_id, ticketmaster_id }
+  externalIds    Json @default("{}") @map("external_ids")
+
+  // Denormalised counters, maintained in the same transaction as the write that
+  // changes them — these are read on every profile card and every feed row.
+  followerCount   Int    @default(0) @map("follower_count")
+  ratingAvg       Float? @map("rating_avg")
+  ratingCount     Int    @default(0) @map("rating_count")
+  liveRatingAvg   Float? @map("live_rating_avg")
+  liveRatingCount Int    @default(0) @map("live_rating_count")
+
+  /// Paid placement. Surfaced with a distinct visual treatment in feed and
+  /// search; billing is deliberately out of scope for now.
+  isPromoted    Boolean   @default(false) @map("is_promoted")
+  promotedUntil DateTime? @map("promoted_until") @db.Timestamptz(6)
+
+  /// Generated tsvector over name, aliases and genres. Never written directly.
+  searchVector Unsupported("tsvector")?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  aliases       ArtistAlias[]
+  primaryEvents Event[]       @relation("PrimaryArtist")
+  lineups       EventLineup[]
+  follows       Follow[]
+  ratings       Rating[]
+  claims        ArtistClaim[]
+
+  @@index([country, homeCity])
+  @@index([verified])
+  @@map("artists")
+}
+
+/// Alternate spellings and stage names. Ingestion matches against these too.
+model ArtistAlias {
+  id              String @id @default(uuid()) @db.Uuid
+  artistId        String @map("artist_id") @db.Uuid
+  alias           String @db.VarChar(200)
+  /// normaliseName(alias) — the key ingestion dedupes on.
+  normalisedAlias String @map("normalised_alias") @db.VarChar(200)
+
+  artist Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@unique([artistId, normalisedAlias])
+  @@index([normalisedAlias])
+  @@map("artist_aliases")
+}
+
+// ─────────────────────────── Venue ───────────────────────────
+
+model Venue {
+  id            String  @id @default(uuid()) @db.Uuid
+  name          String  @db.VarChar(200)
+  slug          String  @unique @db.VarChar(140)
+  addressLine   String? @map("address_line")
+  city          String  @db.VarChar(120)
+  country       String  @db.VarChar(2)
+  lat           Float
+  lng           Float
+  capacity      Int?
+  googlePlaceId String? @unique @map("google_place_id")
+  image         String?
+  website       String?
+  timezone      String  @default("Africa/Johannesburg") @db.VarChar(64)
+
+  // Accessibility and logistics, shown on the event page. Null means "we do not
+  // know", which is materially different from "no" and must not be rendered as one.
+  wheelchairAccess Boolean? @map("wheelchair_access")
+  ageRestriction   String?  @map("age_restriction") @db.VarChar(40)
+  reentryPolicy    String?  @map("reentry_policy")
+  cloakroom        Boolean?
+
+  /// Generated from (lng, lat). Backs every "near me" query.
+  geog Unsupported("geography(Point, 4326)")?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  events Event[]
+
+  @@index([city, country])
+  @@map("venues")
+}
+
+// ─────────────────────────── Event ───────────────────────────
+
+model Event {
+  id              String      @id @default(uuid()) @db.Uuid
+  title           String      @db.VarChar(300)
+  slug            String      @unique @db.VarChar(160)
+  primaryArtistId String      @map("primary_artist_id") @db.Uuid
+  venueId         String      @map("venue_id") @db.Uuid
+  startsAt        DateTime    @map("starts_at") @db.Timestamptz(6)
+  localTimezone   String      @map("local_timezone") @db.VarChar(64)
+  doorsOpenAt     DateTime?   @map("doors_open_at") @db.Timestamptz(6)
+  status          EventStatus @default(announced)
+  ageRestriction  String?     @map("age_restriction") @db.VarChar(40)
+  description     String?
+  posterImage     String?     @map("poster_image")
+
+  source       EventSourceName
+  /// The provider's own id. Ingestion upserts are keyed on (source, sourceId).
+  sourceId     String?         @map("source_id") @db.VarChar(200)
+  sourceUrl    String?         @map("source_url")
+  lastSyncedAt DateTime?       @map("last_synced_at") @db.Timestamptz(6)
+
+  /// When tickets go on sale. Drives the configurable on-sale reminder.
+  onSaleAt DateTime? @map("on_sale_at") @db.Timestamptz(6)
+
+  /// Set by the admin CMS. An ingestion run must never overwrite a locked event.
+  isLocked Boolean @default(false) @map("is_locked")
+
+  /// Paid placement, as on Artist.
+  isPromoted    Boolean   @default(false) @map("is_promoted")
+  promotedUntil DateTime? @map("promoted_until") @db.Timestamptz(6)
+
+  commentCount    Int @default(0) @map("comment_count")
+  interestedCount Int @default(0) @map("interested_count")
+  goingCount      Int @default(0) @map("going_count")
+  attendedCount   Int @default(0) @map("attended_count")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  primaryArtist Artist         @relation("PrimaryArtist", fields: [primaryArtistId], references: [id])
+  venue         Venue          @relation(fields: [venueId], references: [id])
+  lineup        EventLineup[]
+  ticketOptions TicketOption[]
+  comments      Comment[]
+  attendances   Attendance[]
+  ratings       Rating[]
+  ticketClicks  TicketClick[]
+
+  @@unique([source, sourceId], name: "source_identity")
+  @@index([onSaleAt])
+  @@index([startsAt])
+  @@index([primaryArtistId, startsAt])
+  @@index([venueId, startsAt])
+  @@index([status, startsAt])
+  @@map("events")
+}
+
+/// Ordered lineup. Every entry links to an artist profile — this is the
+/// discovery engine, so support acts are first-class rows, not free text.
+model EventLineup {
+  id              String     @id @default(uuid()) @db.Uuid
+  eventId         String     @map("event_id") @db.Uuid
+  artistId        String     @map("artist_id") @db.Uuid
+  billingPosition Int        @map("billing_position")
+  role            LineupRole @default(support)
+
+  event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  artist Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, artistId])
+  @@index([artistId])
+  @@index([eventId, billingPosition])
+  @@map("event_lineups")
+}
+
+model TicketOption {
+  id            String             @id @default(uuid()) @db.Uuid
+  eventId       String             @map("event_id") @db.Uuid
+  provider      TicketProvider
+  tierName      String             @map("tier_name") @db.VarChar(120)
+  /// Minor units (cents). Null when the provider does not publish a price.
+  priceMinor    Int?               @map("price_minor")
+  currency      String             @default("ZAR") @db.VarChar(3)
+  availability  TicketAvailability @default(available)
+  purchaseUrl   String             @map("purchase_url")
+  lastCheckedAt DateTime?          @map("last_checked_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  event     Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  clicks    TicketClick[]
+  snapshots TicketPriceSnapshot[]
+
+  @@unique([eventId, provider, tierName])
+  @@index([eventId])
+  @@map("ticket_options")
+}
+
+// ─────────────────────────── User ───────────────────────────
+
+model User {
+  id                String  @id @default(uuid()) @db.Uuid
+  /// Firebase Auth uid. Null only for seeded fixtures.
+  authUid           String? @unique @map("auth_uid") @db.VarChar(128)
+  handle            String  @unique @db.VarChar(30)
+  displayName       String  @map("display_name") @db.VarChar(80)
+  email             String  @unique @db.VarChar(320)
+  avatar            String?
+  homeLat           Float?  @map("home_lat")
+  homeLng           Float?  @map("home_lng")
+  homeCity          String? @map("home_city") @db.VarChar(120)
+  /// Shape of DEFAULT_NOTIFICATION_PREFS in @onstage/shared.
+  notificationPrefs Json    @default("{}") @map("notification_prefs")
+
+  /// UI language. en | zu | af today; adding one is a translation file, not code.
+  locale String @default("en") @db.VarChar(5)
+
+  /// Set once the user has picked genres and followed their first artists, so
+  /// the discovery feed is never empty on first open.
+  onboardedAt      DateTime? @map("onboarded_at") @db.Timestamptz(6)
+  onboardingGenres String[]  @default([]) @map("onboarding_genres")
+
+  /// POPIA: a deletion request starts a clock, it does not delete inline.
+  deletionRequestedAt DateTime? @map("deletion_requested_at") @db.Timestamptz(6)
+
+  isAdmin   Boolean   @default(false) @map("is_admin")
+  /// Set when a moderator bans the account; all writes are refused afterwards.
+  bannedAt  DateTime? @map("banned_at") @db.Timestamptz(6)
+  banReason String?   @map("ban_reason")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  follows        Follow[]
+  attendances    Attendance[]
+  ratings        Rating[]
+  comments       Comment[]
+  commentLikes   CommentLike[]
+  reportsFiled   CommentReport[]      @relation("Reporter")
+  reportsHandled CommentReport[]      @relation("Moderator")
+  pushTokens     PushToken[]
+  claims         ArtistClaim[]
+  outbox         NotificationOutbox[]
+  consents       UserConsent[]
+  badges         UserBadge[]
+  referralCode   ReferralCode?
+  referralsMade  Referral[]           @relation("Inviter")
+  following      UserFollow[]         @relation("Follower")
+  followers      UserFollow[]         @relation("Followee")
+  referralUsed   Referral?            @relation("Invitee")
+  ticketClicks   TicketClick[]
+
+  @@map("users")
+}
+
+model Follow {
+  userId    String   @map("user_id") @db.Uuid
+  artistId  String   @map("artist_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artist Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@id([userId, artistId])
+  @@index([artistId])
+  @@map("follows")
+}
+
+model Attendance {
+  userId    String          @map("user_id") @db.Uuid
+  eventId   String          @map("event_id") @db.Uuid
+  state     AttendanceState
+  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@id([userId, eventId])
+  @@index([eventId, state])
+  @@map("attendances")
+}
+
+/// One general rating per user per artist (eventId null), plus one live
+/// performance rating per user per event. The partial unique indexes that
+/// enforce that pair live in the migration SQL.
+model Rating {
+  id         String  @id @default(uuid()) @db.Uuid
+  userId     String  @map("user_id") @db.Uuid
+  artistId   String  @map("artist_id") @db.Uuid
+  eventId    String? @map("event_id") @db.Uuid
+  score      Int
+  reviewText String? @map("review_text")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artist Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  event  Event? @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([artistId, eventId])
+  @@index([userId])
+  @@map("ratings")
+}
+
+// ─────────────────────────── Social ───────────────────────────
+
+model Comment {
+  id              String        @id @default(uuid()) @db.Uuid
+  eventId         String        @map("event_id") @db.Uuid
+  userId          String        @map("user_id") @db.Uuid
+  /// Self-referencing. The API permits one level of nesting only.
+  parentCommentId String?       @map("parent_comment_id") @db.Uuid
+  body            String        @db.VarChar(2000)
+  tag             CommentTag    @default(none)
+  /// Planning runs from announcement; recap opens once the show has started.
+  thread          CommentThread @default(planning)
+
+  likeCount  Int     @default(0) @map("like_count")
+  replyCount Int     @default(0) @map("reply_count")
+  isHidden   Boolean @default(false) @map("is_hidden")
+
+  moderationState ModerationState @default(visible) @map("moderation_state")
+  /// 0–100 from scoreComment(). Anything over the review threshold is queued.
+  scamScore       Int             @default(0) @map("scam_score")
+  scamSignals     Json            @default("[]") @map("scam_signals")
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  event   Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent  Comment?        @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies Comment[]       @relation("CommentReplies")
+  likes   CommentLike[]
+  reports CommentReport[]
+
+  @@index([eventId, thread, createdAt])
+  @@index([eventId, thread, tag, createdAt])
+  @@index([eventId, thread, likeCount])
+  @@index([parentCommentId, createdAt])
+  @@index([userId, createdAt])
+  @@map("comments")
+}
+
+model CommentLike {
+  commentId String   @map("comment_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([commentId, userId])
+  @@index([userId])
+  @@map("comment_likes")
+}
+
+model CommentReport {
+  id          String       @id @default(uuid()) @db.Uuid
+  commentId   String       @map("comment_id") @db.Uuid
+  reporterId  String       @map("reporter_id") @db.Uuid
+  reason      ReportReason
+  detail      String?
+  status      ReportStatus @default(open)
+  moderatorId String?      @map("moderator_id") @db.Uuid
+  resolution  String?
+  resolvedAt  DateTime?    @map("resolved_at") @db.Timestamptz(6)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  comment   Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  reporter  User    @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  moderator User?   @relation("Moderator", fields: [moderatorId], references: [id])
+
+  @@unique([commentId, reporterId])
+  @@index([status, createdAt])
+  @@map("comment_reports")
+}
+
+// ─────────────────────── Platform plumbing ───────────────────────
+
+model PushToken {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  token      String   @unique
+  platform   String   @db.VarChar(16)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_tokens")
+}
+
+/// Queued pushes and emails. Written in the same transaction as the change that
+/// triggers them and drained by the worker, so a notification is never lost to
+/// a crash and never sent twice.
+model NotificationOutbox {
+  id          String       @id @default(uuid()) @db.Uuid
+  userId      String       @map("user_id") @db.Uuid
+  kind        String       @db.VarChar(64)
+  payload     Json
+  /// Stops duplicate sends: one row per (user, kind, subject).
+  dedupeKey   String       @unique @map("dedupe_key") @db.VarChar(200)
+  status      OutboxStatus @default(pending)
+  scheduledAt DateTime     @map("scheduled_at") @db.Timestamptz(6)
+  sentAt      DateTime?    @map("sent_at") @db.Timestamptz(6)
+  attempts    Int          @default(0)
+  lastError   String?      @map("last_error")
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledAt])
+  @@map("notification_outbox")
+}
+
+/// Claim-your-profile flow. A verified claim unlocks artist self-submission.
+model ArtistClaim {
+  id         String    @id @default(uuid()) @db.Uuid
+  artistId   String    @map("artist_id") @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  evidence   String
+  status     String    @default("pending") @db.VarChar(16)
+  reviewedAt DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  artist Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([artistId, userId])
+  @@map("artist_claims")
+}
+
+/// One row per ingestion pass, so coverage gaps are diagnosable rather than
+/// mysterious. Coverage is the product here, not a feature.
+model IngestionRun {
+  id         String          @id @default(uuid()) @db.Uuid
+  source     EventSourceName
+  /// "hot" (events on sale, hourly) or "cold" (the long tail, daily).
+  tier       String          @db.VarChar(16)
+  startedAt  DateTime        @default(now()) @map("started_at") @db.Timestamptz(6)
+  finishedAt DateTime?       @map("finished_at") @db.Timestamptz(6)
+  fetched    Int             @default(0)
+  created    Int             @default(0)
+  updated    Int             @default(0)
+  skipped    Int             @default(0)
+  deduped    Int             @default(0)
+  failed     Int             @default(0)
+  error      String?
+
+  @@index([source, startedAt])
+  @@map("ingestion_runs")
+}
+
+// ─────────────────── Growth, retention and compliance ───────────────────
+
+/// POPIA consent log. Append-only in spirit: the latest row per (user, type)
+/// is authoritative, and the history shows when consent changed and from where.
+model UserConsent {
+  id            String      @id @default(uuid()) @db.Uuid
+  userId        String      @map("user_id") @db.Uuid
+  type          ConsentType
+  granted       Boolean
+  /// Where the consent was captured, e.g. "onboarding" or "settings".
+  source        String      @db.VarChar(64)
+  policyVersion String      @map("policy_version") @db.VarChar(32)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type, createdAt])
+  @@map("user_consents")
+}
+
+/// One permanent code per user. Shared links carry it; redeeming credits both sides.
+model ReferralCode {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid
+  code      String   @unique @db.VarChar(16)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("referral_codes")
+}
+
+/// A completed invite. One row per invitee, so a code cannot be redeemed twice.
+model Referral {
+  id          String    @id @default(uuid()) @db.Uuid
+  inviterId   String    @map("inviter_id") @db.Uuid
+  inviteeId   String    @unique @map("invitee_id") @db.Uuid
+  code        String    @db.VarChar(16)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  inviter User @relation("Inviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee User @relation("Invitee", fields: [inviteeId], references: [id], onDelete: Cascade)
+
+  @@index([inviterId])
+  @@map("referrals")
+}
+
+/// Awarded attendance badges. The streak itself is computed from attendance;
+/// this table records what has already been awarded and announced.
+model UserBadge {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  code         String   @db.VarChar(32)
+  /// Streak length in months at the moment of award.
+  streakMonths Int      @map("streak_months")
+  awardedAt    DateTime @default(now()) @map("awarded_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, code])
+  @@map("user_badges")
+}
+
+/// Outbound ticket-link clicks, for affiliate attribution.
+///
+/// The purchase happens entirely on the provider's site — Onstage records only
+/// that the hand-off occurred, so commission can be reconciled later.
+model TicketClick {
+  id             String         @id @default(uuid()) @db.Uuid
+  eventId        String         @map("event_id") @db.Uuid
+  ticketOptionId String         @map("ticket_option_id") @db.Uuid
+  userId         String?        @map("user_id") @db.Uuid
+  provider       TicketProvider
+  /// Which surface sent the click: app, web or share card.
+  surface        String         @db.VarChar(24)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  event        Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  ticketOption TicketOption @relation(fields: [ticketOptionId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([eventId, createdAt])
+  @@index([provider, createdAt])
+  @@map("ticket_clicks")
+}
+
+/// Price history per ticket tier. Written by ingestion whenever a price moves,
+/// which is what makes a price-drop alert possible at all.
+model TicketPriceSnapshot {
+  id             String   @id @default(uuid()) @db.Uuid
+  ticketOptionId String   @map("ticket_option_id") @db.Uuid
+  priceMinor     Int      @map("price_minor")
+  currency       String   @db.VarChar(3)
+  observedAt     DateTime @default(now()) @map("observed_at") @db.Timestamptz(6)
+
+  ticketOption TicketOption @relation(fields: [ticketOptionId], references: [id], onDelete: Cascade)
+
+  @@index([ticketOptionId, observedAt])
+  @@map("ticket_price_snapshots")
+}
+
+/// Person-to-person follows.
+///
+/// Distinct from artist follows and added for Group Plans: "who that I know is
+/// also going". A mutual pair is treated as a connection. This is a social
+/// graph, not an attendance-sharing default — visibility is still decided by
+/// the query, not by the edge existing.
+model UserFollow {
+  followerId String   @map("follower_id") @db.Uuid
+  followeeId String   @map("followee_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  follower User @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followee User @relation("Followee", fields: [followeeId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followeeId])
+  @@index([followeeId])
+  @@map("user_follows")
+}

@@ -1,0 +1,48 @@
+{
+  "name": "@onstage/worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Onstage ingestion and notification worker — pulls events from provider adapters, normalises, dedupes and upserts.",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "ts-node -r tsconfig-paths/register src/main.ts",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint \"src/**/*.ts\"",
+    "test": "jest",
+    "ingest": "ts-node -r tsconfig-paths/register src/cli.ts"
+  },
+  "dependencies": {
+    "@onstage/shared": "*",
+    "@prisma/client": "^5.22.0",
+    "croner": "^8.1.2",
+    "dotenv": "^16.4.5",
+    "pino": "^9.5.0",
+    "pino-pretty": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.9.0",
+    "@typescript-eslint/eslint-plugin": "^8.14.0",
+    "@typescript-eslint/parser": "^8.14.0",
+    "eslint": "^8.57.1",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.6.3"
+  },
+  "jest": {
+    "moduleFileExtensions": ["js", "json", "ts"],
+    "rootDir": ".",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "moduleNameMapper": {
+      "^@onstage/shared$": "<rootDir>/../../packages/shared/src/index.ts"
+    },
+    "testEnvironment": "node"
+  }
+}
