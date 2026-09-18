@@ -17,6 +17,23 @@
     "promoted": "Geborg",
     "seeAll": "Sien alles"
   },
+  "auth": {
+    "signInTitle": "Meld aan",
+    "signUpTitle": "Skep jou rekening",
+    "email": "E-pos",
+    "password": "Wagwoord",
+    "passwordHint": "Ten minste 6 karakters.",
+    "displayName": "Naam",
+    "signIn": "Meld aan",
+    "signUp": "Skep rekening",
+    "orContinueWith": "of gaan voort met",
+    "continueWithGoogle": "Gaan voort met Google",
+    "continueWithApple": "Gaan voort met Apple",
+    "needAccount": "Nuut hier? Skep 'n rekening",
+    "haveAccount": "Het reeds 'n rekening? Meld aan",
+    "notConfiguredTitle": "Aanmelding is nog nie opgestel nie",
+    "notConfiguredBody": "Hierdie weergawe het nie Firebase opgestel nie. Vra wie ook al Onstage bestuur om die EXPO_PUBLIC_FIREBASE_* veranderlikes by te voeg."
+  },
   "tabs": {
     "discover": "Ontdek",
     "search": "Soek",

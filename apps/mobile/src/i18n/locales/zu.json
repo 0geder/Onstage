@@ -17,6 +17,23 @@
     "promoted": "Kukhangisiwe",
     "seeAll": "Buka konke"
   },
+  "auth": {
+    "signInTitle": "Ngena",
+    "signUpTitle": "Dala i-akhawunti yakho",
+    "email": "I-imeyili",
+    "password": "Iphasiwedi",
+    "passwordHint": "Okungenani izinhlamvu ezingu-6.",
+    "displayName": "Igama",
+    "signIn": "Ngena",
+    "signUp": "Dala i-akhawunti",
+    "orContinueWith": "noma qhubeka nge",
+    "continueWithGoogle": "Qhubeka ne-Google",
+    "continueWithApple": "Qhubeka ne-Apple",
+    "needAccount": "Umusha lapha? Dala i-akhawunti",
+    "haveAccount": "Sewunayo i-akhawunti? Ngena",
+    "notConfiguredTitle": "Ukungena akukalungiselelwa",
+    "notConfiguredBody": "Le nguqulo ayinayo i-Firebase elungiselelwe. Cela lowo ophethe i-Onstage engeze izinguqulo ze-EXPO_PUBLIC_FIREBASE_*."
+  },
   "tabs": {
     "discover": "Thola",
     "search": "Sesha",

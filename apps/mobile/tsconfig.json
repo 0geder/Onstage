@@ -5,7 +5,17 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
-    }
+    },
+    // firebase/auth's React Native build (getReactNativePersistence etc.) is
+    // only reachable through its "react-native" conditional export — Metro
+    // resolves this automatically at runtime, but classic node resolution
+    // (the expo base's default) ignores exports maps entirely. "bundler"
+    // resolution plus this custom condition is the fix Firebase's own docs
+    // recommend for this exact gap; it only affects type-checking, never
+    // Metro's actual bundling.
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "customConditions": ["react-native"]
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
 }

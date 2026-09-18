@@ -63,6 +63,35 @@ apps/web/.env.local     — API_BASE_URL, NEXT_PUBLIC_WEB_BASE_URL
 
 In development, `AUTH_MODE=dev` accepts bearer tokens of the form `Bearer dev:<handle>` (no Firebase project required) — the seed script provisions users `thandi`, `sipho`, `aisha`, `johan`, `lindiwe`, `quickseller99` (a deliberately fresh, scam-flagged account) and `curator` (an admin). `AUTH_MODE=dev` refuses to start when `NODE_ENV=production`.
 
+### Wiring up real sign-in (Firebase)
+
+The mobile app supports email/password, Google and Apple sign-in via Firebase Auth. Two independent halves need connecting:
+
+1. **Server (Admin SDK)** — [Firebase console](https://console.firebase.google.com) → your project → Project settings → Service accounts → Generate new private key. Map the downloaded JSON into `apps/api/.env`:
+   ```
+   AUTH_MODE=firebase
+   FIREBASE_PROJECT_ID=<project_id>
+   FIREBASE_CLIENT_EMAIL=<client_email>
+   FIREBASE_PRIVATE_KEY="<private_key, \n escapes kept literal, wrapped in quotes>"
+   ```
+   Never commit that JSON file.
+
+2. **Client (mobile)** — Project settings → General → Your apps → register an iOS/Android app matching the `bundleIdentifier`/`package` in [`apps/mobile/app.json`](apps/mobile/app.json) (`za.co.onstage`). This gives you a public `firebaseConfig` — safe to ship in the app binary, unlike the Admin SDK credentials above:
+   ```
+   EXPO_PUBLIC_FIREBASE_API_KEY=
+   EXPO_PUBLIC_FIREBASE_PROJECT_ID=
+   EXPO_PUBLIC_FIREBASE_APP_ID=
+   ```
+   For Google sign-in, enabling the Google provider under Authentication → Sign-in method auto-creates a Web OAuth client under Google Cloud Console → APIs & Services → Credentials; add iOS/Android client IDs there too and set:
+   ```
+   EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=
+   EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=
+   EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=
+   ```
+   For Apple sign-in, enable "Sign In with Apple" as a capability on your App ID in the Apple Developer portal. **Apple sign-in needs a custom dev client or EAS build** — `expo-apple-authentication` is a native module and does not work in plain Expo Go. Google sign-in (browser-based OAuth via `expo-auth-session`) and email/password both work fine in Expo Go.
+
+Without any `EXPO_PUBLIC_FIREBASE_*` set, the sign-in screen renders a plain "not configured" message instead of crashing — useful for running the rest of the app signed out during early setup.
+
 ### Running tests
 
 ```bash

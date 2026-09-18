@@ -7,6 +7,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { loadToken } from '../src/api/client';
 import i18n, { initI18n } from '../src/i18n';
+import { firebaseConfigured } from '../src/lib/firebase';
+import { subscribeToAuthChanges } from '../src/lib/auth';
 import { colors } from '../src/theme';
 import { Loading } from '../src/components/ui';
 
@@ -30,6 +32,17 @@ export default function RootLayout() {
       await Promise.all([initI18n(), loadToken()]);
       setReady(true);
     })();
+  }, []);
+
+  // Keeps the API client's bearer token in sync with Firebase's session for the
+  // lifetime of the app — sign-in, sign-out, and the hourly token refresh all
+  // flow through this one subscription rather than being handled per screen.
+  useEffect(() => {
+    if (!firebaseConfigured) return undefined;
+    const unsubscribe = subscribeToAuthChanges(() => {
+      void queryClient.invalidateQueries({ queryKey: ['me'] });
+    });
+    return unsubscribe;
   }, []);
 
   if (!ready) return <Loading />;
@@ -56,6 +69,8 @@ export default function RootLayout() {
                 name="onboarding"
                 options={{ headerShown: false, gestureEnabled: false }}
               />
+              <Stack.Screen name="auth/sign-in" options={{ title: '' }} />
+              <Stack.Screen name="auth/sign-up" options={{ title: '' }} />
               <Stack.Screen name="settings/index" options={{ title: 'Settings' }} />
               <Stack.Screen name="settings/notifications" options={{ title: 'Notifications' }} />
               <Stack.Screen name="settings/privacy" options={{ title: 'Privacy' }} />

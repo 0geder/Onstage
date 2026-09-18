@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { FlatList, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useBadges, useFollowing, useMe, useReferralCode } from '../../src/api/hooks';
-import { setToken } from '../../src/api/client';
+import { signOutUser } from '../../src/lib/auth';
 import { ArtistTile } from '../../src/components/cards';
 import {
   Avatar,
@@ -37,7 +37,7 @@ export default function ProfileScreen() {
         <EmptyState
           title={t('profile.signIn')}
           body={t('profile.signedOutBody')}
-          action={<Button label={t('profile.signIn')} onPress={() => router.push('/onboarding')} />}
+          action={<Button label={t('profile.signIn')} onPress={() => router.push('/auth/sign-in')} />}
         />
       </Screen>
     );
@@ -142,7 +142,7 @@ export default function ProfileScreen() {
           <Button
             label={t('profile.signOut')}
             variant="ghost"
-            onPress={() => void setToken(null).then(() => me.refetch())}
+            onPress={() => void signOutUser().then(() => me.refetch())}
           />
         </View>
       </ScrollView>

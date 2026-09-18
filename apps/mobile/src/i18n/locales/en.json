@@ -12,6 +12,23 @@
     "promoted": "Promoted",
     "seeAll": "See all"
   },
+  "auth": {
+    "signInTitle": "Sign in",
+    "signUpTitle": "Create your account",
+    "email": "Email",
+    "password": "Password",
+    "passwordHint": "At least 6 characters.",
+    "displayName": "Name",
+    "signIn": "Sign in",
+    "signUp": "Create account",
+    "orContinueWith": "or continue with",
+    "continueWithGoogle": "Continue with Google",
+    "continueWithApple": "Continue with Apple",
+    "needAccount": "New here? Create an account",
+    "haveAccount": "Already have an account? Sign in",
+    "notConfiguredTitle": "Sign-in isn't set up yet",
+    "notConfiguredBody": "This build doesn't have Firebase configured. Ask whoever runs Onstage to add the EXPO_PUBLIC_FIREBASE_* variables."
+  },
   "tabs": {
     "discover": "Discover",
     "search": "Search",
