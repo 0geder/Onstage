@@ -120,3 +120,11 @@ button:disabled { opacity: .5; cursor: not-allowed; }
   border-radius: 8px;
 }
 .actions { display: flex; gap: 8px; align-items: center; }
+
+/* Sign-in */
+.login-wrap { max-width: 380px; margin: 12vh auto 0; padding: 0 16px; }
+.login-wrap h2 { margin-bottom: 16px; }
+.login { display: grid; gap: 14px; }
+.sidebar .operator { margin-top: 24px; padding-top: 14px; border-top: 1px solid var(--border); display: grid; gap: 8px; color: var(--faint); font-size: 12px; overflow-wrap: anywhere; }
+.sidebar .operator form { display: block; max-width: none; }
+.sidebar .operator button { width: 100%; }

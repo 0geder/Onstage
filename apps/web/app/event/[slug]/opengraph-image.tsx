@@ -1,6 +1,7 @@
 import { ImageResponse } from 'next/og';
 import { formatEventDateTime, EVENT_STATUS_LABELS } from '@onstage/shared';
 import { getEvent } from '../../../lib/api';
+import { safeUrl } from '../../../lib/safe';
 
 /**
  * The share card.
@@ -16,8 +17,9 @@ export const alt = 'Onstage event';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
-export default async function Image({ params }: { params: { slug: string } }) {
-  const event = await getEvent(params.slug);
+export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const event = await getEvent(slug);
 
   if (!event) {
     return new ImageResponse(
@@ -58,10 +60,10 @@ export default async function Image({ params }: { params: { slug: string } }) {
           alignItems: 'center',
         }}
       >
-        {event.posterImage ? (
+        {safeUrl(event.posterImage) ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={event.posterImage}
+            src={safeUrl(event.posterImage)}
             width={340}
             height={460}
             alt=""

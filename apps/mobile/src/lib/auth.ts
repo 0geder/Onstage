@@ -12,16 +12,18 @@ import {
   type User,
 } from 'firebase/auth';
 import { Platform } from 'react-native';
-import { setToken } from '../api/client';
+import { clearCache, setTokenProvider } from '../api/client';
 import { getFirebaseAuth } from './firebase';
+import { unregisterPushToken } from './push';
 
 /**
  * Authentication.
  *
- * Every sign-in path here ends the same way: Firebase issues an ID token, and
- * `setToken` hands it to the API client as the bearer token the backend
- * verifies against its own Admin SDK credentials. The app never invents its
- * own session — Firebase is the only source of truth for "who is this".
+ * Every sign-in path here ends the same way: Firebase holds an ID token, and
+ * the API client asks it for that token on each request — the bearer token
+ * the backend verifies against its own Admin SDK credentials. The app never
+ * invents its own session — Firebase is the only source of truth for "who is
+ * this".
  */
 
 export class AuthError extends Error {}
@@ -147,26 +149,34 @@ export async function signInWithApple(): Promise<User> {
   }
 }
 
+/**
+ * Signs out and forgets everything cached for this person, so whoever signs in
+ * next on the same device never sees the previous user's data. The caller
+ * clears its React Query cache too (see profile screen).
+ */
 export async function signOutUser(): Promise<void> {
+  // Deregister while the token still authenticates the request.
+  await unregisterPushToken();
   await signOut(getFirebaseAuth());
-  await setToken(null);
+  await clearCache().catch(() => undefined);
 }
 
 /**
- * Keeps the API client's bearer token in sync with Firebase's own session.
+ * Connects the API client to Firebase's session.
  *
- * `onIdTokenChanged` fires on sign-in, sign-out, and on Firebase's automatic
- * hourly token refresh — subscribing to it here means the app never has to
- * remember to refresh anything itself.
+ * `getIdToken()` returns Firebase's cached token and refreshes it shortly
+ * before expiry, so nothing here has to track tokens itself. `onIdTokenChanged`
+ * fires on sign-in, sign-out and each refresh.
  */
 export function subscribeToAuthChanges(onChange: (user: User | null) => void): () => void {
-  return onIdTokenChanged(getFirebaseAuth(), async (user) => {
-    if (user) {
-      const token = await user.getIdToken();
-      await setToken(token);
-    } else {
-      await setToken(null);
-    }
-    onChange(user);
+  const auth = getFirebaseAuth();
+  setTokenProvider(async (forceRefresh) => {
+    const user = auth.currentUser;
+    return user ? user.getIdToken(forceRefresh) : null;
   });
+  const unsubscribe = onIdTokenChanged(auth, (user) => onChange(user));
+  return () => {
+    unsubscribe();
+    setTokenProvider(null);
+  };
 }

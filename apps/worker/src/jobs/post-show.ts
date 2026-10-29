@@ -22,41 +22,67 @@ const SHOW_LENGTH_HOURS = 6;
 /** Local hour at which the rating prompt is sent. */
 const PROMPT_HOUR = 10;
 
+/**
+ * How far back confirmation looks. Only shows that still have "going" rows are
+ * picked up, so the window just bounds the scan; a week covers a worker outage
+ * over a long weekend without revisiting the whole archive every hour.
+ */
+const CONFIRM_LOOKBACK_HOURS = 7 * 24;
+
+/** Events per pass. Newest first, so a backlog never starves last night's shows. */
+const CONFIRM_BATCH = 500;
+
 export async function confirmAttendance(): Promise<number> {
   const cutoff = new Date(Date.now() - SHOW_LENGTH_HOURS * 3_600_000);
-
-  const finished = await prisma.event.findMany({
-    where: { startsAt: { lt: cutoff }, status: { notIn: ['cancelled', 'postponed'] } },
-    select: { id: true },
-    take: 500,
-  });
-  if (finished.length === 0) return 0;
-
-  const eventIds = finished.map((event) => event.id);
+  const floor = new Date(Date.now() - CONFIRM_LOOKBACK_HOURS * 3_600_000);
 
   // "Going" becomes "attended". "Interested" does not — saying a show looks good
   // is not the same as having been there, and the live rating depends on that
-  // distinction holding.
-  const promoted = await prisma.attendance.updateMany({
-    where: { eventId: { in: eventIds }, state: 'going' },
-    data: { state: 'attended' },
+  // distinction holding. updated_at is set by hand because raw SQL bypasses
+  // Prisma's @updatedAt, and awardBadges keys on it.
+  const promoted = await prisma.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<{ event_id: string }[]>`
+      WITH finished AS (
+        SELECT e.id
+        FROM events e
+        WHERE e.starts_at < ${cutoff}
+          AND e.starts_at >= ${floor}
+          AND e.status NOT IN ('cancelled', 'postponed')
+          AND EXISTS (SELECT 1 FROM attendances a WHERE a.event_id = e.id AND a.state = 'going')
+        ORDER BY e.starts_at DESC
+        LIMIT ${CONFIRM_BATCH}
+      )
+      UPDATE attendances a
+      SET state = 'attended', updated_at = now()
+      FROM finished f
+      WHERE a.event_id = f.id AND a.state = 'going'
+      RETURNING a.event_id
+    `;
+    if (rows.length === 0) return rows;
+
+    // Recounted from the rows rather than adjusted, so any earlier drift in
+    // these counters is corrected at the same time.
+    const eventIds = [...new Set(rows.map((row) => row.event_id))];
+    await tx.$executeRaw`
+      UPDATE events e
+      SET going_count = c.going, attended_count = c.attended, updated_at = now()
+      FROM (
+        SELECT ev.id,
+               COUNT(a.*) FILTER (WHERE a.state = 'going')::int AS going,
+               COUNT(a.*) FILTER (WHERE a.state = 'attended')::int AS attended
+        FROM unnest(${eventIds}::uuid[]) AS ev(id)
+        LEFT JOIN attendances a ON a.event_id = ev.id
+        GROUP BY ev.id
+      ) c
+      WHERE e.id = c.id
+    `;
+    return rows;
   });
 
-  if (promoted.count > 0) {
-    for (const eventId of eventIds) {
-      const attended = await prisma.attendance.count({
-        where: { eventId, state: 'attended' },
-      });
-      const going = await prisma.attendance.count({ where: { eventId, state: 'going' } });
-      await prisma.event.update({
-        where: { id: eventId },
-        data: { attendedCount: attended, goingCount: going },
-      });
-    }
-    logger.info({ promoted: promoted.count }, 'Confirmed attendance for finished shows');
+  if (promoted.length > 0) {
+    logger.info({ promoted: promoted.length }, 'Confirmed attendance for finished shows');
   }
-
-  return promoted.count;
+  return promoted.length;
 }
 
 export async function promptLiveRatings(): Promise<number> {

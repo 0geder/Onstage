@@ -9,7 +9,12 @@ export interface AppConfig {
   nodeEnv: string;
   port: number;
   baseUrl: string;
+  /** Empty means "not configured"; main.ts decides what that means per environment. */
   corsOrigins: string[];
+  /** Reverse-proxy hops in front of the API, for req.ip. Null trusts none. */
+  trustProxy: number | null;
+  /** Swagger UI at /docs. Always on outside production; opt-in within it. */
+  enableApiDocs: boolean;
   databaseUrl: string;
   redisUrl: string;
   auth: {
@@ -54,11 +59,24 @@ function parseAffiliate(): AffiliateConfig | null {
 }
 
 function parseOrigins(raw?: string): string[] {
-  if (!raw) return ['*'];
+  if (!raw) return [];
   return raw
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+}
+
+/**
+ * Number of proxy hops to trust for X-Forwarded-For. Unset trusts none, so a
+ * client cannot spoof its IP past the rate limiter by sending the header.
+ */
+function parseTrustProxy(raw?: string): number | null {
+  if (!raw) return null;
+  const hops = Number(raw);
+  if (!Number.isInteger(hops) || hops < 0) {
+    throw new Error(`TRUST_PROXY must be a non-negative integer (proxy hops), got "${raw}".`);
+  }
+  return hops;
 }
 
 export default (): AppConfig => ({
@@ -66,15 +84,20 @@ export default (): AppConfig => ({
   port: Number(process.env.API_PORT ?? 3000),
   baseUrl: process.env.API_BASE_URL ?? 'http://localhost:3000',
   corsOrigins: parseOrigins(process.env.CORS_ORIGINS),
+  trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
+  enableApiDocs:
+    (process.env.NODE_ENV ?? 'development') !== 'production' ||
+    process.env.ENABLE_API_DOCS === 'true',
   databaseUrl: process.env.DATABASE_URL ?? '',
   redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
   auth: {
-    mode: process.env.AUTH_MODE === 'firebase' ? 'firebase' : 'dev',
+    // Dev auth must be asked for by name; a missing or misspelt value is firebase.
+    mode: process.env.AUTH_MODE === 'dev' ? 'dev' : 'firebase',
     firebase: {
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
       // Private keys are pasted with literal \n escapes; restore real newlines.
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\n/g, '\n'),
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
     },
   },
   adminApiToken: process.env.ADMIN_API_TOKEN ?? '',

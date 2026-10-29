@@ -12,15 +12,17 @@ import {
 } from '@onstage/shared';
 import { AppBanner } from '../../../components/app-banner';
 import { getEvent, getTravel, WEB_BASE_URL } from '../../../lib/api';
+import { jsonLd, safeUrl } from '../../../lib/safe';
 
 export const revalidate = 300;
 
 interface Props {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const event = await getEvent(params.slug);
+  const { slug } = await params;
+  const event = await getEvent(slug);
   if (!event) return { title: 'Event not found' };
 
   const when = formatEventDateTime(event.startsAt, event.localTimezone);
@@ -37,13 +39,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       url: publicEventUrl(WEB_BASE_URL, event.slug),
       type: 'article',
-      images: event.posterImage ? [{ url: event.posterImage }] : undefined,
+      images: poster(event) ? [{ url: poster(event)! }] : undefined,
     },
   };
 }
 
 export default async function EventPage({ params }: Props) {
-  const event = await getEvent(params.slug);
+  const { slug } = await params;
+  const event = await getEvent(slug);
   if (!event) notFound();
 
   const travel = await getTravel(event.id);
@@ -55,12 +58,12 @@ export default async function EventPage({ params }: Props) {
         type="application/ld+json"
         // Structured data is the entire point of this page existing: it is what
         // puts the show into event-rich search results rather than a plain link.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(eventJsonLd(event)) }}
+        dangerouslySetInnerHTML={{ __html: jsonLd(eventJsonLd(event)) }}
       />
 
-      {event.posterImage ? (
+      {poster(event) ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img className="poster" src={event.posterImage} alt={`Poster for ${event.title}`} />
+        <img className="poster" src={poster(event)} alt={`Poster for ${event.title}`} />
       ) : null}
 
       <h1>{event.title}</h1>
@@ -114,14 +117,16 @@ export default async function EventPage({ params }: Props) {
                         {option.provider} · {option.availability.replace('_', ' ')}
                       </div>
                     </div>
-                    {option.availability === 'sold_out' ? (
-                      <span className="faint">Sold out</span>
+                    {option.availability === 'sold_out' || !safeUrl(option.purchaseUrl) ? (
+                      <span className="faint">
+                        {option.availability === 'sold_out' ? 'Sold out' : 'Link unavailable'}
+                      </span>
                     ) : (
                       // rel=nofollow sponsored: these are commercial outbound
                       // links and should be declared as such.
                       <a
                         className="cta"
-                        href={option.purchaseUrl}
+                        href={safeUrl(option.purchaseUrl)}
                         rel="nofollow sponsored noopener"
                         target="_blank"
                       >
@@ -194,6 +199,10 @@ function yesNo(value: boolean | null): string {
   return value ? 'Yes' : 'No';
 }
 
+function poster(event: EventDetail): string | undefined {
+  return safeUrl(event.posterImage);
+}
+
 /** schema.org MusicEvent. */
 function eventJsonLd(event: EventDetail) {
   const statusMap: Record<string, string> = {
@@ -210,7 +219,7 @@ function eventJsonLd(event: EventDetail) {
     doorTime: event.doorsOpenAt ?? undefined,
     eventStatus: statusMap[event.status] ?? 'https://schema.org/EventScheduled',
     eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
-    image: event.posterImage ?? undefined,
+    image: poster(event),
     description: event.description ?? undefined,
     location: {
       '@type': 'MusicVenue',
@@ -235,7 +244,7 @@ function eventJsonLd(event: EventDetail) {
     offers: event.ticketOptions.map((option) => ({
       '@type': 'Offer',
       name: option.tierName,
-      url: option.purchaseUrl,
+      url: safeUrl(option.purchaseUrl),
       price: option.priceMinor !== null ? (option.priceMinor / 100).toFixed(2) : undefined,
       priceCurrency: option.currency,
       availability:

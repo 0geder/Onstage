@@ -2,27 +2,28 @@
   "name": "@onstage/admin",
   "version": "0.1.0",
   "private": true,
-  "description": "Onstage admin CMS \u2014 manual event curation for the local scene no third-party API covers.",
+  "description": "Onstage admin CMS — manual event curation for the local scene no third-party API covers.",
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start -p 3001",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "next lint"
+    "lint": "eslint .",
+    "hash-password": "node scripts/hash-password.mjs"
   },
   "dependencies": {
     "@onstage/shared": "*",
-    "next": "14.2.35",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
+    "next": "16.4.3",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
-    "eslint": "^8.57.1",
-    "eslint-config-next": "14.2.35",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "eslint": "^9.39.0",
+    "eslint-config-next": "16.4.3",
     "typescript": "^5.6.3"
   }
 }

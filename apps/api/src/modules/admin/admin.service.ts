@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { normaliseName, slugify } from '@onstage/shared';
 import { CacheKeys } from '../../common/redis/cache-keys';
@@ -12,7 +18,10 @@ import type {
   SetTicketOptionsDto,
   UpdateArtistDto,
   UpdateEventDto,
+  UpdateVenueDto,
 } from './dto/admin.dto';
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * The manual curation surface.
@@ -24,6 +33,8 @@ import type {
  */
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly cache: CacheService,
@@ -127,7 +138,7 @@ export class AdminService {
     });
   }
 
-  async updateVenue(id: string, input: Partial<CreateVenueDto>) {
+  async updateVenue(id: string, input: UpdateVenueDto) {
     await this.mustExist('venue', id);
     return this.prisma.venue.update({ where: { id }, data: input });
   }
@@ -337,6 +348,25 @@ export class AdminService {
     }));
   }
 
+  /**
+   * Resolves the moderator named by the CMS. Absent means "the CMS itself" and
+   * is recorded as null; present but not an admin user is refused outright.
+   */
+  async resolveModerator(adminUserId: string | undefined): Promise<string | null> {
+    if (adminUserId === undefined || adminUserId === '') return null;
+    if (!UUID.test(adminUserId)) {
+      throw new ForbiddenException('X-Admin-User-Id must be the id of an admin user.');
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { id: adminUserId },
+      select: { isAdmin: true, bannedAt: true },
+    });
+    if (!user?.isAdmin || user.bannedAt) {
+      throw new ForbiddenException('X-Admin-User-Id must be the id of an admin user.');
+    }
+    return adminUserId;
+  }
+
   async moderateComment(
     commentId: string,
     action: 'hide' | 'restore',
@@ -373,7 +403,7 @@ export class AdminService {
   }
 
   /** Bans an account. Every write path checks `bannedAt` before proceeding. */
-  async banUser(userId: string, reason: string) {
+  async banUser(userId: string, reason: string, moderatorId: string | null = null) {
     await this.prisma.user.update({
       where: { id: userId },
       data: { bannedAt: new Date(), banReason: reason },
@@ -383,14 +413,17 @@ export class AdminService {
       where: { userId, deletedAt: null },
       data: { isHidden: true, moderationState: 'hidden' },
     });
+    // No ban-audit column yet, so the acting moderator goes to the log.
+    this.logger.log(`User ${userId} banned by ${moderatorId ?? 'admin token'}`);
     return { banned: true };
   }
 
-  async unbanUser(userId: string) {
+  async unbanUser(userId: string, moderatorId: string | null = null) {
     await this.prisma.user.update({
       where: { id: userId },
       data: { bannedAt: null, banReason: null },
     });
+    this.logger.log(`User ${userId} unbanned by ${moderatorId ?? 'admin token'}`);
     return { banned: false };
   }
 

@@ -1,5 +1,6 @@
 import { Body, Controller, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { IsIn, IsOptional } from 'class-validator';
 import { OptionalAuthGuard } from '../../common/auth/auth.guard';
 import { CurrentUser, type AuthUser } from '../../common/auth/auth-user';
@@ -23,6 +24,9 @@ export class TicketsController {
 
   @Post(':optionId/click')
   @UseGuards(OptionalAuthGuard)
+  // Clicks can be anonymous and feed the affiliate report, so they get a much
+  // tighter per-IP limit than the global default to keep the numbers honest.
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
   @ApiOperation({
     summary: 'Open a ticket option',
     description:

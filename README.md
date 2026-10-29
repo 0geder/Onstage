@@ -19,8 +19,9 @@ A monorepo with six workspaces:
 
 ## Prerequisites
 
-- Node.js 20+
-- Docker Desktop (for PostgreSQL + PostGIS, Redis, and MinIO locally)
+- Node.js 22 (20.19+ works; React Native 0.88 and Next 16 need at least that)
+- Docker Desktop (for PostgreSQL + PostGIS and Redis locally)
+- For on-device Android builds: Android Studio (its bundled JDK and the Android SDK)
 - npm (workspaces are used throughout — don't mix in yarn/pnpm)
 
 ## Local setup
@@ -34,7 +35,7 @@ npm install
 #    adapter/feature rather than crashing anything.
 cp .env.example .env
 
-# 3. Start Postgres, Redis and MinIO
+# 3. Start Postgres and Redis (MinIO is opt-in: docker compose --profile storage up -d)
 npm run infra:up
 
 # 4. Generate the Prisma client, then apply the migration
@@ -61,7 +62,7 @@ apps/admin/.env.local   — API_BASE_URL, ADMIN_API_TOKEN
 apps/web/.env.local     — API_BASE_URL, NEXT_PUBLIC_WEB_BASE_URL
 ```
 
-In development, `AUTH_MODE=dev` accepts bearer tokens of the form `Bearer dev:<handle>` (no Firebase project required) — the seed script provisions users `thandi`, `sipho`, `aisha`, `johan`, `lindiwe`, `quickseller99` (a deliberately fresh, scam-flagged account) and `curator` (an admin). `AUTH_MODE=dev` refuses to start when `NODE_ENV=production`.
+In development, `AUTH_MODE=dev` accepts bearer tokens of the form `Bearer dev:<handle>` (no Firebase project required) — the seed script provisions users `thandi`, `sipho`, `aisha`, `johan`, `lindiwe`, `quickseller99` (a deliberately fresh, scam-flagged account) and `curator` (an admin). `AUTH_MODE=dev` must be set explicitly (unset or anything else means `firebase`) and refuses to start unless `NODE_ENV` is `development` or `test`.
 
 ### Wiring up real sign-in (Firebase)
 
@@ -101,16 +102,59 @@ cd apps/worker && npm test       # dedupe pipeline, run against a real PostGIS d
 
 The worker's dedupe tests are integration tests, not unit tests — they need `npm run infra:up` and a migrated database, and they exercise the exact rule from the spec: same show, three sources, collapsed on normalised artist name + venue within 500 m + start time within 24 hours.
 
+## Mobile app builds
+
+The app is Expo SDK 58 (React Native 0.88) with a custom dev client, so native modules (Apple sign-in, push, maps) work on a real device. Native `android/` and `ios/` folders are generated, never committed.
+
+**On your own Android phone over USB** (USB debugging on, API running locally):
+
+```bash
+adb reverse tcp:3000 tcp:3000    # the phone's localhost:3000 reaches this machine's API
+adb reverse tcp:8081 tcp:8081    # Metro bundler
+cd apps/mobile
+EXPO_PUBLIC_API_BASE_URL=http://localhost:3000 npx expo run:android   # builds, installs, launches
+npx expo start --dev-client      # later runs: start Metro and open the installed app
+```
+
+On Windows, point `JAVA_HOME` at Android Studio's `jbr` folder and `ANDROID_HOME` at `%LOCALAPPDATA%\Android\Sdk`. The SDK's default CMake (3.22.1) bundles ninja 1.10, which cannot create paths over 260 characters; Reanimated's C++ build nests the repo path twice, so a project under `C:\Users\<you>\Desktop\...` fails with `ninja: error: mkdir(...): No such file or directory`. Install a newer CMake (`sdkmanager "cmake;3.31.6"`, which bundles ninja 1.12) and add `cmake.dir=C\:\\Users\\<you>\\AppData\\Local\\Android\\Sdk\\cmake\\3.31.6` to `apps/mobile/android/local.properties`, with Windows long paths enabled. EAS cloud builds run on Linux/macOS and are unaffected.
+
+**Store builds** go through EAS ([`apps/mobile/eas.json`](apps/mobile/eas.json)):
+
+```bash
+npm i -g eas-cli && eas login
+cd apps/mobile && eas init          # creates the EAS project; set EAS_PROJECT_ID (push tokens need it)
+eas build --profile preview --platform android   # installable APK for testers
+eas build --profile production --platform all    # store builds (AAB + IPA), version auto-incremented
+eas submit --profile production                  # Play internal track / App Store Connect
+```
+
+Set the `EXPO_PUBLIC_FIREBASE_*` values, Google client IDs and `EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY` as EAS environment variables per profile. The API URL per profile is in `eas.json` (`api-staging.onstage.co.za` / `api.onstage.co.za` — change these to your real hosts). A release build without an API URL shows a setup-error screen rather than silently calling localhost. The icon, adaptive icon, splash and notification icon in `apps/mobile/assets` are placeholders generated from the wordmark; replace them with final artwork at the same sizes.
+
+## Deploying the server side
+
+One [`Dockerfile`](Dockerfile) at the root builds every server-side piece:
+
+```bash
+docker build --target migrate -t onstage-migrate .   # run once per release, before the api
+docker build --target api     -t onstage-api .       # :3000
+docker build --target worker  -t onstage-worker .    # run exactly one replica (cron jobs are in-process)
+docker build --target web     -t onstage-web .       # public site, :3000 in the container
+docker build --target admin   -t onstage-admin .     # CMS, :3000; keep it behind an access proxy or VPN
+```
+
+Images carry no secrets; every value comes from environment variables at runtime. The website also serves `/.well-known/assetlinks.json` and `/.well-known/apple-app-site-association` from `ANDROID_CERT_SHA256` and `APPLE_TEAM_ID`, which Android and iOS check before the app may open `onstage.co.za` links. [CI](.github/workflows/ci.yml) typechecks, lints, tests, bundles the mobile app for both platforms and builds all five images on every push and pull request.
+
 ## Environment variables
 
 All variables live in [`.env.example`](.env.example), grouped by purpose:
 
 - **Datastores** — `DATABASE_URL` (PostgreSQL + PostGIS), `REDIS_URL`
-- **API** — port, base URL, CORS origins
+- **API** — port, base URL, CORS origins (an explicit list is required in production), `TRUST_PROXY` (proxy hops, so rate limits see the real client IP), `ENABLE_API_DOCS` (serve `/docs` in production)
 - **Auth** — `AUTH_MODE` (`dev` | `firebase`) and Firebase Admin credentials
 - **Admin CMS** — `ADMIN_API_TOKEN`, a shared secret held only by the CMS server process, never exposed to a browser
 - **Ingestion providers** — Bandsintown, Songkick, Ticketmaster, Quicket credentials. Each is independently optional; the worker adapter registry skips any provider with no key configured and logs that it did, rather than failing the run
-- **Streaming / Maps / Push** — Spotify, Google Maps, FCM
+- **Streaming / Maps** — Spotify, Google Maps (`EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY` for the Android map)
+- **Push** — `PUSH_DELIVERY=expo` sends through the Expo push service (APNs + FCM); unset, the worker only logs notifications
 - **Object storage** — S3-compatible (MinIO locally)
 - **Mobile (Expo)** — `EXPO_PUBLIC_*` variables, bundled at build time
 - **Public web** — base URL, app store links for the hand-off banner

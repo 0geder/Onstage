@@ -1,6 +1,17 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { IsArray, IsLatitude, IsLongitude, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsLatitude,
+  IsLongitude,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsTimeZone,
+  Max,
+  Min,
+} from 'class-validator';
 import { PaginationQueryDto } from '../../../common/dto/pagination.dto';
 
 function csv(value: unknown): string[] | undefined {
@@ -36,6 +47,7 @@ export class DiscoveryQueryDto {
   @IsOptional()
   @Transform(({ value }) => csv(value))
   @IsArray()
+  @ArrayMaxSize(20)
   @IsString({ each: true })
   genres?: string[];
 
@@ -44,7 +56,7 @@ export class DiscoveryQueryDto {
     description: 'IANA timezone deciding what counts as "this weekend".',
   })
   @IsOptional()
-  @IsString()
+  @IsTimeZone()
   timezone?: string;
 }
 
@@ -73,6 +85,7 @@ export class NearbyQueryDto extends PaginationQueryDto {
   @IsOptional()
   @Transform(({ value }) => csv(value))
   @IsArray()
+  @ArrayMaxSize(20)
   @IsString({ each: true })
   genres?: string[];
 }

@@ -14,8 +14,8 @@ export interface VerifiedToken {
  *
  * In `firebase` mode this is a real Firebase Admin ID-token verification. In
  * `dev` mode it accepts `dev:<uid>` so the app, the CMS and the seed fixtures
- * can be exercised without a Firebase project. Dev mode refuses to start when
- * NODE_ENV is production.
+ * can be exercised without a Firebase project. Dev mode refuses to start unless
+ * NODE_ENV is explicitly development or test.
  */
 @Injectable()
 export class TokenVerifierService implements OnModuleInit {
@@ -24,13 +24,18 @@ export class TokenVerifierService implements OnModuleInit {
   private firebaseAuth: import('firebase-admin/auth').Auth | null = null;
 
   constructor(private readonly config: ConfigService) {
-    this.mode = this.config.get<AppConfig['auth']>('auth')?.mode ?? 'dev';
+    this.mode = this.config.get<AppConfig['auth']>('auth')?.mode ?? 'firebase';
   }
 
   async onModuleInit(): Promise<void> {
     if (this.mode === 'dev') {
-      if (this.config.get<string>('nodeEnv') === 'production') {
-        throw new Error('AUTH_MODE=dev is not permitted in production.');
+      // Allow-list, not deny-list: staging, a typo or an unset NODE_ENV in a
+      // container must never end up accepting forgeable dev tokens.
+      const nodeEnv = process.env.NODE_ENV;
+      if (nodeEnv !== 'development' && nodeEnv !== 'test') {
+        throw new Error(
+          `AUTH_MODE=dev is only permitted when NODE_ENV is development or test (got "${nodeEnv ?? 'unset'}").`,
+        );
       }
       this.logger.warn('AUTH_MODE=dev — bearer tokens of the form "dev:<uid>" are accepted.');
       return;

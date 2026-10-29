@@ -57,19 +57,71 @@ export function wantsCategory(
 
 const MAX_ATTEMPTS = 5;
 const BATCH_SIZE = 200;
+/** Pushes in flight at once. Each is one HTTP call to Expo with a 15 s timeout. */
+const SEND_CONCURRENCY = 8;
+/**
+ * How long a claimed row stays invisible to other drains. Must comfortably
+ * exceed a full batch (200 rows / 8 at a time × 15 s worst case ≈ 6 min). A
+ * drain that dies mid-batch leaves its rows to reappear after this — delivery
+ * is at-least-once across a crash, exactly-once otherwise.
+ */
+const CLAIM_LEASE_MINUTES = 15;
+
+/**
+ * Atomically claims a batch of due rows.
+ *
+ * The outbox status enum has no "sending" state, so the claim is a lease: the
+ * claimed rows' scheduled_at is pushed past the lease, which takes them out of
+ * every other drain's "due" set the moment this statement commits. SKIP LOCKED
+ * means two drains racing on the same rows split them instead of both taking them.
+ */
+async function claimDue(): Promise<string[]> {
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    UPDATE notification_outbox
+    SET scheduled_at = now() + make_interval(mins => ${CLAIM_LEASE_MINUTES}::int)
+    WHERE id IN (
+      SELECT id FROM notification_outbox
+      WHERE status = 'pending' AND scheduled_at <= now() AND attempts < ${MAX_ATTEMPTS}
+      ORDER BY scheduled_at ASC
+      LIMIT ${BATCH_SIZE}
+      FOR UPDATE SKIP LOCKED
+    )
+    RETURNING id
+  `;
+  return rows.map((row) => row.id);
+}
+
+/** Runs `task` over `items` with at most `limit` in flight. */
+async function forEachConcurrent<T>(
+  items: T[],
+  limit: number,
+  task: (item: T) => Promise<void>,
+): Promise<void> {
+  let next = 0;
+  const lanes = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const item = items[next];
+      next += 1;
+      await task(item);
+    }
+  });
+  await Promise.all(lanes);
+}
 
 /**
  * Delivers due notifications.
  *
- * Push delivery itself is deliberately behind a seam: with no FCM key configured
+ * Push delivery itself is deliberately behind a seam: with PUSH_DELIVERY unset
  * the worker logs what it would have sent and marks the row sent, so the whole
- * pipeline is exercisable in development without a Firebase project.
+ * pipeline is exercisable in development without an Expo project.
  */
 export async function drainOutbox(): Promise<{ sent: number; failed: number }> {
+  const claimed = await claimDue();
+  if (claimed.length === 0) return { sent: 0, failed: 0 };
+
   const due = await prisma.notificationOutbox.findMany({
-    where: { status: 'pending', scheduledAt: { lte: new Date() }, attempts: { lt: MAX_ATTEMPTS } },
+    where: { id: { in: claimed } },
     orderBy: { scheduledAt: 'asc' },
-    take: BATCH_SIZE,
     include: {
       user: {
         select: {
@@ -87,7 +139,7 @@ export async function drainOutbox(): Promise<{ sent: number; failed: number }> {
   let sent = 0;
   let failed = 0;
 
-  for (const row of due) {
+  await forEachConcurrent(due, SEND_CONCURRENCY, async (row) => {
     // A ban or deletion request between queueing and sending cancels delivery.
     if (row.user.bannedAt || row.user.deletionRequestedAt) {
       await prisma.notificationOutbox.update({
@@ -95,7 +147,7 @@ export async function drainOutbox(): Promise<{ sent: number; failed: number }> {
         data: { status: 'failed', lastError: 'Recipient is banned or pending deletion' },
       });
       failed += 1;
-      continue;
+      return;
     }
 
     try {
@@ -119,7 +171,7 @@ export async function drainOutbox(): Promise<{ sent: number; failed: number }> {
       });
       failed += 1;
     }
-  }
+  });
 
   if (sent || failed) logger.info({ sent, failed }, 'Outbox drained');
   return { sent, failed };
@@ -132,28 +184,85 @@ interface Recipient {
   pushTokens: { token: string; platform: string }[];
 }
 
+const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+
+/** Where a tap on the notification should land in the app. */
+function deepLinkPath(kind: string, payload: Record<string, unknown>): string {
+  if (kind === 'post_show_rating') return '/plans';
+  if (typeof payload.eventSlug === 'string') return `/event/${payload.eventSlug}`;
+  return '/';
+}
+
+interface ExpoTicket {
+  status: 'ok' | 'error';
+  message?: string;
+  details?: { error?: string };
+}
+
+/**
+ * Push delivery through the Expo push service, which fronts both APNs and FCM
+ * for tokens the mobile app registers with expo-notifications. Kept as a single
+ * seam so swapping providers does not touch any producer.
+ */
 async function deliver(
   kind: string,
   payload: Record<string, unknown>,
   user: Recipient,
 ): Promise<void> {
-  const serverKey = process.env.FCM_SERVER_KEY;
-
-  if (!serverKey) {
+  if (process.env.PUSH_DELIVERY !== 'expo') {
     logger.info(
       { kind, to: user.handle, title: payload.title, devices: user.pushTokens.length },
-      'FCM not configured — notification logged instead of sent',
+      'Push delivery disabled — notification logged instead of sent',
     );
     return;
   }
 
-  if (user.pushTokens.length === 0) {
+  const tokens = user.pushTokens.map((device) => device.token);
+  if (tokens.length === 0) {
     // Nothing to deliver to is a completed delivery, not a failure to retry.
     logger.debug({ kind, to: user.handle }, 'No registered devices');
     return;
   }
 
-  // Real delivery goes here. Kept as a single seam so swapping FCM for another
-  // provider does not touch any producer.
-  throw new Error('FCM delivery is configured but not yet implemented');
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  };
+  // Optional: required only once "enhanced push security" is on for the Expo project.
+  if (process.env.EXPO_ACCESS_TOKEN) headers.Authorization = `Bearer ${process.env.EXPO_ACCESS_TOKEN}`;
+
+  const messages = tokens.map((to) => ({
+    to,
+    title: String(payload.title ?? 'Onstage'),
+    body: typeof payload.body === 'string' ? payload.body : undefined,
+    sound: 'default',
+    channelId: 'default',
+    data: { kind, url: deepLinkPath(kind, payload) },
+  }));
+
+  const response = await fetch(EXPO_PUSH_URL, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(messages),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) {
+    throw new Error(`Expo push service returned ${response.status}`);
+  }
+
+  const { data: tickets } = (await response.json()) as { data: ExpoTicket[] };
+
+  // Uninstalled apps report DeviceNotRegistered; drop those tokens so they are
+  // not retried forever.
+  const dead = tokens.filter((_, i) => tickets[i]?.details?.error === 'DeviceNotRegistered');
+  if (dead.length) {
+    await prisma.pushToken.deleteMany({ where: { token: { in: dead } } });
+    logger.info({ to: user.handle, removed: dead.length }, 'Removed unregistered push tokens');
+  }
+
+  const delivered = tickets.filter((ticket) => ticket.status === 'ok').length;
+  if (delivered === 0 && dead.length < tokens.length) {
+    const reason = tickets.find((ticket) => ticket.status === 'error')?.message ?? 'unknown error';
+    throw new Error(`No device accepted the push: ${reason}`);
+  }
 }

@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -20,6 +21,7 @@ import { colors, radii, spacing, typography } from '../../src/theme';
 export default function ProfileScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const me = useMe();
   const following = useFollowing();
@@ -142,7 +144,7 @@ export default function ProfileScreen() {
           <Button
             label={t('profile.signOut')}
             variant="ghost"
-            onPress={() => void signOutUser().then(() => me.refetch())}
+            onPress={() => void signOutUser().then(() => queryClient.clear())}
           />
         </View>
       </ScrollView>

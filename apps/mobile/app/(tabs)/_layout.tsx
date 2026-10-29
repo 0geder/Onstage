@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
+import { Text, type ColorValue } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { colors } from '../../src/theme';
 
@@ -7,7 +7,7 @@ import { colors } from '../../src/theme';
  * Four tabs, matching how the product is actually used: find something, look
  * something up, check what you committed to, manage yourself.
  */
-function TabIcon({ glyph, colour }: { glyph: string; colour: string }) {
+function TabIcon({ glyph, colour }: { glyph: string; colour: ColorValue }) {
   return <Text style={{ fontSize: 20, color: colour }}>{glyph}</Text>;
 }
 

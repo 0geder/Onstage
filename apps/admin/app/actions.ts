@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { adminRequest } from '../lib/api';
+import { requireOperator } from '../lib/session';
 
 /**
  * Server actions.
@@ -19,6 +20,16 @@ export interface ActionResult {
 
 function toResult(error: unknown): ActionResult {
   return { ok: false, message: (error as Error).message };
+}
+
+// Server actions are public POST endpoints: anything reaching an API path is
+// checked here, never trusted because "the UI only sends valid values".
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const EVENT_STATUSES = ['announced', 'on_sale', 'low_stock', 'sold_out', 'postponed', 'cancelled'];
+
+function id(value: unknown, what: string): string {
+  if (typeof value !== 'string' || !UUID.test(value)) throw new Error(`Invalid ${what}.`);
+  return encodeURIComponent(value);
 }
 
 /** Empty string from a form field means "not provided", not "empty value". */
@@ -46,6 +57,7 @@ function triState(form: FormData, key: string): boolean | undefined {
 
 export async function createVenue(_prev: ActionResult | null, form: FormData): Promise<ActionResult> {
   try {
+    await requireOperator();
     const lat = number(form, 'lat');
     const lng = number(form, 'lng');
     if (lat === undefined || lng === undefined) {
@@ -79,6 +91,7 @@ export async function createVenue(_prev: ActionResult | null, form: FormData): P
 
 export async function createArtist(_prev: ActionResult | null, form: FormData): Promise<ActionResult> {
   try {
+    await requireOperator();
     const aliases = text(form, 'aliases')
       ?.split(',')
       .map((alias) => alias.trim())
@@ -110,6 +123,7 @@ export async function createArtist(_prev: ActionResult | null, form: FormData): 
 
 export async function createEvent(_prev: ActionResult | null, form: FormData): Promise<ActionResult> {
   try {
+    await requireOperator();
     const startsAt = text(form, 'startsAt');
     if (!startsAt) return { ok: false, message: 'A start time is required.' };
 
@@ -163,7 +177,9 @@ export async function createEvent(_prev: ActionResult | null, form: FormData): P
 
 export async function setEventStatus(eventId: string, status: string): Promise<ActionResult> {
   try {
-    await adminRequest(`/admin/events/${eventId}`, { method: 'PATCH', body: { status } });
+    await requireOperator();
+    if (!EVENT_STATUSES.includes(status)) throw new Error('Invalid status.');
+    await adminRequest(`/admin/events/${id(eventId, 'event')}`, { method: 'PATCH', body: { status } });
     revalidatePath('/events');
     return { ok: true, message: 'Status updated.' };
   } catch (error) {
@@ -176,7 +192,9 @@ export async function moderateComment(
   action: 'hide' | 'restore',
 ): Promise<ActionResult> {
   try {
-    await adminRequest(`/admin/moderation/comments/${commentId}`, {
+    await requireOperator();
+    if (action !== 'hide' && action !== 'restore') throw new Error('Invalid action.');
+    await adminRequest(`/admin/moderation/comments/${id(commentId, 'comment')}`, {
       method: 'POST',
       body: { action },
     });
@@ -189,9 +207,12 @@ export async function moderateComment(
 
 export async function banUser(userId: string, reason: string): Promise<ActionResult> {
   try {
-    await adminRequest(`/admin/moderation/users/${userId}/ban`, {
+    await requireOperator();
+    const trimmed = typeof reason === 'string' ? reason.trim().slice(0, 500) : '';
+    if (!trimmed) throw new Error('Give a reason for the ban.');
+    await adminRequest(`/admin/moderation/users/${id(userId, 'user')}/ban`, {
       method: 'POST',
-      body: { reason },
+      body: { reason: trimmed },
     });
     revalidatePath('/moderation');
     return { ok: true, message: 'Account banned and its posts hidden.' };

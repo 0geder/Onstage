@@ -5,10 +5,20 @@ import Redis from 'ioredis';
 /**
  * Read-through cache for hot artist and event pages.
  *
- * Redis being down is never allowed to take the API with it: every method here
- * swallows connection errors and falls through to the loader. A slow page beats
- * an error screen.
+ * Redis being down is never allowed to take the API with it: the cache methods
+ * swallow connection errors and fall through to the loader. A slow page beats
+ * an error screen. The rate-limit primitives are the exception — they report
+ * failure so the caller can choose to fail closed.
  */
+
+/** INCR and the window's expiry in one step, so a crash can't leave a key without a TTL. */
+const INCREMENT_SCRIPT = `
+local count = redis.call('INCR', KEYS[1])
+if count == 1 or redis.call('PTTL', KEYS[1]) < 0 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+end
+return count
+`;
 @Injectable()
 export class CacheService implements OnModuleDestroy {
   private readonly logger = new Logger(CacheService.name);
@@ -20,6 +30,8 @@ export class CacheService implements OnModuleDestroy {
       maxRetriesPerRequest: 1,
       enableOfflineQueue: false,
       lazyConnect: false,
+      // A hung Redis must not hang every request that consults the rate limiter.
+      commandTimeout: 1000,
       retryStrategy: (times) => Math.min(times * 500, 5000),
     });
 
@@ -85,19 +97,21 @@ export class CacheService implements OnModuleDestroy {
   }
 
   /**
-   * Fixed-window counter used for posting and rating rate limits.
-   * Returns the count within the current window.
+   * Atomic fixed-window counter used for posting and rating rate limits.
+   * Returns the count within the current window, or null when Redis is
+   * unavailable — the caller decides whether that fails open or closed.
    */
-  async increment(key: string, windowSeconds: number): Promise<number> {
+  async increment(key: string, windowSeconds: number): Promise<number | null> {
     try {
-      const count = await this.client.incr(key);
-      if (count === 1) await this.client.expire(key, windowSeconds);
-      return count;
+      return Number(await this.client.eval(INCREMENT_SCRIPT, 1, key, windowSeconds * 1000));
     } catch {
-      // If the counter is unavailable we let the request through; the database
-      // level checks (account age, duplicate detection) still apply.
-      return 0;
+      return null;
     }
+  }
+
+  /** Runs a Lua script atomically. Throws when Redis is unavailable. */
+  async evalScript<T>(script: string, keys: string[], args: (string | number)[]): Promise<T> {
+    return (await this.client.eval(script, keys.length, ...keys, ...args)) as T;
   }
 
   async ping(): Promise<boolean> {

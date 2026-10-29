@@ -9,6 +9,7 @@ import {
   IsLongitude,
   IsOptional,
   IsString,
+  IsUrl,
   Matches,
   Max,
   MaxLength,
@@ -84,7 +85,8 @@ export class UpdateProfileDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsUrl({ protocols: ['https', 'http'], require_protocol: true })
+  @MaxLength(2048)
   avatar?: string;
 
   @ApiPropertyOptional({ description: 'Home latitude, used to centre the Near You feed.' })

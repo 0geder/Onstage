@@ -1,4 +1,5 @@
 import 'server-only';
+import { getOperator } from './session';
 
 /**
  * Admin API access.
@@ -8,16 +9,27 @@ import 'server-only';
  * is the whole reason the CMS is a server-rendered app rather than a SPA.
  */
 
-const API_BASE = `${(process.env.API_BASE_URL ?? 'http://localhost:3000').replace(/\/$/, '')}/v1`;
+const CONFIGURED_API = process.env.API_BASE_URL;
+if (!CONFIGURED_API && process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE !== 'phase-production-build') {
+  throw new Error('API_BASE_URL must be set for the admin CMS in production.');
+}
+const API_BASE = `${(CONFIGURED_API ?? 'http://localhost:3000').replace(/\/$/, '')}/v1`;
 
-function authHeaders(): Record<string, string> {
+async function authHeaders(): Promise<Record<string, string>> {
   const token = process.env.ADMIN_API_TOKEN;
   if (!token || token === 'change-me-in-every-environment') {
     throw new Error(
       'ADMIN_API_TOKEN is not configured. Set it in .env before using the admin CMS.',
     );
   }
-  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  };
+  // Lets the API record which person moderated, not just "the CMS".
+  const operator = await getOperator();
+  if (operator?.uid) headers['X-Admin-User-Id'] = operator.uid;
+  return headers;
 }
 
 export class AdminApiError extends Error {
@@ -35,7 +47,7 @@ export async function adminRequest<T>(
 ): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     method: init.method ?? 'GET',
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: init.body === undefined ? undefined : JSON.stringify(init.body),
     // Curation is a live view of the data; a cached list is worse than useless.
     cache: 'no-store',

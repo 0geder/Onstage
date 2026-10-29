@@ -67,13 +67,14 @@ export class ConsentService {
       })),
     });
 
-    // Withdrawing location consent clears the stored home location immediately —
+    // Withdrawing location consent clears the stored home location (city too,
+    // which is location data in its own right) immediately —
     // consent withdrawn has to mean the data stops being held, not just unused.
     const location = entries.find((entry) => entry.type === 'location');
     if (location && !location.granted) {
       await this.prisma.user.update({
         where: { id: userId },
-        data: { homeLat: null, homeLng: null },
+        data: { homeLat: null, homeLng: null, homeCity: null },
       });
     }
 

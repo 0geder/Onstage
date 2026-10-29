@@ -3,8 +3,8 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   Param,
-  ParseIntPipe,
   ParseUUIDPipe,
   Patch,
   Post,
@@ -17,16 +17,30 @@ import { AdminTokenGuard } from '../../common/auth/admin-token.guard';
 import { TicketsService } from '../tickets/tickets.service';
 import { AdminService } from './admin.service';
 import {
+  AdminEventsQueryDto,
+  AdminLimitQueryDto,
+  AdminRunsQueryDto,
+  AdminVenuesQueryDto,
+  AnomalyQueryDto,
   BanUserDto,
+  ClickReportQueryDto,
   CreateArtistDto,
   CreateEventDto,
   CreateVenueDto,
   ModerateCommentDto,
   SetLineupDto,
+  SetPromotionDto,
   SetTicketOptionsDto,
   UpdateArtistDto,
   UpdateEventDto,
+  UpdateVenueDto,
 } from './dto/admin.dto';
+
+/**
+ * Sent by the CMS alongside the admin token to say which signed-in moderator is
+ * acting. Optional, but when present it must name a real admin user.
+ */
+const ADMIN_USER_HEADER = 'x-admin-user-id';
 
 /**
  * Admin and curation surface, guarded by a shared token held by the CMS process.
@@ -62,8 +76,8 @@ export class AdminController {
 
   @Get('venues')
   @ApiOperation({ summary: 'List or search venues' })
-  listVenues(@Query('search') search?: string, @Query('limit') limit = '50') {
-    return this.admin.listVenues(search, Number(limit));
+  listVenues(@Query() query: AdminVenuesQueryDto) {
+    return this.admin.listVenues(query.search, query.limit);
   }
 
   @Post('venues')
@@ -78,7 +92,7 @@ export class AdminController {
 
   @Patch('venues/:id')
   @ApiOperation({ summary: 'Update a venue' })
-  updateVenue(@Param('id', ParseUUIDPipe) id: string, @Body() body: Partial<CreateVenueDto>) {
+  updateVenue(@Param('id', ParseUUIDPipe) id: string, @Body() body: UpdateVenueDto) {
     return this.admin.updateVenue(id, body);
   }
 
@@ -86,17 +100,12 @@ export class AdminController {
 
   @Get('events')
   @ApiOperation({ summary: 'List events for curation' })
-  listEvents(
-    @Query('search') search?: string,
-    @Query('city') city?: string,
-    @Query('limit') limit = '50',
-    @Query('upcoming') upcoming = 'true',
-  ) {
+  listEvents(@Query() query: AdminEventsQueryDto) {
     return this.admin.listEvents({
-      search,
-      city,
-      limit: Number(limit),
-      upcoming: upcoming !== 'false',
+      search: query.search,
+      city: query.city,
+      limit: query.limit,
+      upcoming: query.upcoming !== 'false',
     });
   }
 
@@ -145,19 +154,13 @@ export class AdminController {
     description:
       'Display and ranking only. Billing is deliberately out of scope — nothing here charges anyone.',
   })
-  promoteArtist(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { isPromoted: boolean; promotedUntil?: string },
-  ) {
+  promoteArtist(@Param('id', ParseUUIDPipe) id: string, @Body() body: SetPromotionDto) {
     return this.admin.setPromotion('artist', id, body.isPromoted, body.promotedUntil);
   }
 
   @Put('events/:id/promotion')
   @ApiOperation({ summary: 'Set or clear paid placement on an event' })
-  promoteEvent(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { isPromoted: boolean; promotedUntil?: string },
-  ) {
+  promoteEvent(@Param('id', ParseUUIDPipe) id: string, @Body() body: SetPromotionDto) {
     return this.admin.setPromotion('event', id, body.isPromoted, body.promotedUntil);
   }
 
@@ -168,34 +171,48 @@ export class AdminController {
     summary: 'Reported and auto-flagged comments',
     description: 'Worst scam score first. Nothing is ever removed without a human deciding.',
   })
-  queue(@Query('limit') limit = '50') {
-    return this.admin.moderationQueue(Number(limit));
+  queue(@Query() query: AdminLimitQueryDto) {
+    return this.admin.moderationQueue(query.limit);
   }
 
   @Post('moderation/comments/:id')
   @ApiOperation({ summary: 'Hide or restore a comment' })
-  moderate(@Param('id', ParseUUIDPipe) id: string, @Body() body: ModerateCommentDto) {
-    return this.admin.moderateComment(id, body.action, null, body.resolution);
+  async moderate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: ModerateCommentDto,
+    @Headers(ADMIN_USER_HEADER) adminUserId?: string,
+  ) {
+    const moderatorId = await this.admin.resolveModerator(adminUserId);
+    return this.admin.moderateComment(id, body.action, moderatorId, body.resolution);
   }
 
   @Post('moderation/users/:id/ban')
   @ApiOperation({ summary: 'Ban an account and hide its posts' })
-  ban(@Param('id', ParseUUIDPipe) id: string, @Body() body: BanUserDto) {
-    return this.admin.banUser(id, body.reason);
+  async ban(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: BanUserDto,
+    @Headers(ADMIN_USER_HEADER) adminUserId?: string,
+  ) {
+    const moderatorId = await this.admin.resolveModerator(adminUserId);
+    return this.admin.banUser(id, body.reason, moderatorId);
   }
 
   @Delete('moderation/users/:id/ban')
   @ApiOperation({ summary: 'Lift a ban' })
-  unban(@Param('id', ParseUUIDPipe) id: string) {
-    return this.admin.unbanUser(id);
+  async unban(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Headers(ADMIN_USER_HEADER) adminUserId?: string,
+  ) {
+    const moderatorId = await this.admin.resolveModerator(adminUserId);
+    return this.admin.unbanUser(id, moderatorId);
   }
 
   // ── Operational visibility ──
 
   @Get('ingestion/runs')
   @ApiOperation({ summary: 'Recent ingestion runs' })
-  runs(@Query('limit') limit = '30') {
-    return this.admin.ingestionRuns(Number(limit));
+  runs(@Query() query: AdminRunsQueryDto) {
+    return this.admin.ingestionRuns(query.limit);
   }
 
   @Get('coverage')
@@ -210,8 +227,8 @@ export class AdminController {
 
   @Get('anomalies/ratings')
   @ApiOperation({ summary: 'Possible review bombing' })
-  anomalies(@Query('hours', new ParseIntPipe({ optional: true })) hours = 24) {
-    return this.admin.ratingAnomalies(hours);
+  anomalies(@Query() query: AnomalyQueryDto) {
+    return this.admin.ratingAnomalies(query.hours);
   }
 
   @Get('reports/ticket-clicks')
@@ -219,8 +236,8 @@ export class AdminController {
     summary: 'Outbound ticket clicks by provider',
     description: 'The affiliate-side number. No payment passes through Onstage.',
   })
-  ticketClicks(@Query('days', new ParseIntPipe({ optional: true })) days = 30) {
-    return this.tickets.clickReport(days);
+  ticketClicks(@Query() query: ClickReportQueryDto) {
+    return this.tickets.clickReport(query.days);
   }
 
   @Get('deletion-requests')

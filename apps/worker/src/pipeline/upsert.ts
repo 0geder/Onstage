@@ -23,30 +23,36 @@ export interface UpsertOutcome {
   reason?: string;
 }
 
+type Db = Prisma.TransactionClient;
+
 export async function upsertEvent(incoming: NormalisedEvent): Promise<UpsertOutcome> {
   const existing = await prisma.event.findFirst({
     where: { source: incoming.source, sourceId: incoming.sourceId },
-    select: { id: true, isLocked: true },
+    select: { id: true, isLocked: true, source: true },
   });
 
   if (existing) {
-    if (existing.isLocked) {
-      return { action: 'skipped', eventId: existing.id, reason: 'locked by a curator' };
+    // The key matched, but precedence is still checked: whatever owns the row
+    // now must not be overwritten by a feed that ranks below it.
+    const blocked = blockedBy(existing.isLocked, existing.source, incoming.source);
+    if (blocked) {
+      await prisma.$transaction((tx) => mergeTicketOptions(tx, existing.id, incoming));
+      return { action: 'skipped', eventId: existing.id, reason: blocked };
     }
-    await updateEvent(existing.id, incoming);
+    await prisma.$transaction((tx) => updateEvent(tx, existing.id, incoming));
     return { action: 'updated', eventId: existing.id };
   }
 
   // Not seen from this source before — but another source may already have it.
   const duplicate = await findDuplicate(incoming);
   if (duplicate) {
-    if (duplicate.isLocked || !shouldOverwrite(duplicate.existingSource, incoming.source)) {
+    if (blockedBy(duplicate.isLocked, duplicate.existingSource, incoming.source)) {
       logger.debug(
         { eventId: duplicate.eventId, reason: duplicate.reason },
         'Duplicate ignored; existing record takes precedence',
       );
       // Still worth enriching: another source may carry ticket options this one lacks.
-      await mergeTicketOptions(duplicate.eventId, incoming);
+      await prisma.$transaction((tx) => mergeTicketOptions(tx, duplicate.eventId, incoming));
       return { action: 'deduped', eventId: duplicate.eventId, reason: duplicate.reason };
     }
 
@@ -54,12 +60,27 @@ export async function upsertEvent(incoming: NormalisedEvent): Promise<UpsertOutc
       { eventId: duplicate.eventId, from: duplicate.existingSource, to: incoming.source },
       'Duplicate superseded by a higher-precedence source',
     );
-    await updateEvent(duplicate.eventId, incoming);
+    // Ownership moves with the data: the row takes the winning source's
+    // identity, so the next run of the losing source no longer matches it by
+    // key and falls through to the dedupe path above, where precedence holds.
+    // Without this the two sources overwrite each other on alternate runs.
+    await prisma.$transaction((tx) =>
+      updateEvent(tx, duplicate.eventId, incoming, { claimIdentity: true }),
+    );
     return { action: 'deduped', eventId: duplicate.eventId, reason: duplicate.reason };
   }
 
   const eventId = await createEvent(incoming);
   return { action: 'created', eventId };
+}
+
+/** Why `incoming` may not overwrite an event owned by `owner`, or null when it may. */
+function blockedBy(isLocked: boolean, owner: string, incoming: string): string | null {
+  if (isLocked) return 'locked by a curator';
+  if (owner === incoming) return null;
+  if (isManualSource(owner)) return 'owned by a curated source';
+  if (!shouldOverwrite(owner, incoming)) return `owned by higher-precedence source ${owner}`;
+  return null;
 }
 
 async function createEvent(incoming: NormalisedEvent): Promise<string> {
@@ -83,52 +104,64 @@ async function createEvent(incoming: NormalisedEvent): Promise<string> {
     where: { id: venueId },
     select: { timezone: true, city: true },
   });
+  const slug = await uniqueEventSlug(incoming, venue.city);
 
-  const event = await prisma.event.create({
-    data: {
-      title: incoming.title,
-      slug: await uniqueEventSlug(incoming, venue.city),
-      primaryArtistId,
-      venueId,
-      startsAt: incoming.startsAt,
-      doorsOpenAt: incoming.doorsOpenAt ?? null,
-      onSaleAt: incoming.onSaleAt ?? null,
-      localTimezone: incoming.venue.timezone ?? venue.timezone,
-      status: incoming.status,
-      ageRestriction: incoming.ageRestriction ?? null,
-      description: incoming.description ?? null,
-      posterImage: incoming.posterImage ?? null,
-      source: incoming.source,
-      sourceId: incoming.sourceId,
-      sourceUrl: incoming.sourceUrl ?? null,
-      lastSyncedAt: new Date(),
-      isLocked: false,
-      lineup: { create: lineup },
-    },
-    select: { id: true },
+  // The event and its ticket options land together or not at all, so a crash
+  // between the two cannot leave a ticketless event that later runs only update.
+  return prisma.$transaction(async (tx) => {
+    const event = await tx.event.create({
+      data: {
+        title: incoming.title,
+        slug,
+        primaryArtistId,
+        venueId,
+        startsAt: incoming.startsAt,
+        doorsOpenAt: incoming.doorsOpenAt ?? null,
+        onSaleAt: incoming.onSaleAt ?? null,
+        localTimezone: incoming.venue.timezone ?? venue.timezone,
+        status: incoming.status,
+        ageRestriction: incoming.ageRestriction ?? null,
+        description: incoming.description ?? null,
+        posterImage: incoming.posterImage ?? null,
+        source: incoming.source,
+        sourceId: incoming.sourceId,
+        sourceUrl: incoming.sourceUrl ?? null,
+        lastSyncedAt: new Date(),
+        isLocked: false,
+        lineup: { create: lineup },
+      },
+      select: { id: true },
+    });
+
+    await mergeTicketOptions(tx, event.id, incoming);
+    return event.id;
   });
-
-  await mergeTicketOptions(event.id, incoming);
-  return event.id;
 }
 
-async function updateEvent(eventId: string, incoming: NormalisedEvent): Promise<void> {
-  await prisma.event.update({
+async function updateEvent(
+  tx: Db,
+  eventId: string,
+  incoming: NormalisedEvent,
+  options: { claimIdentity?: boolean } = {},
+): Promise<void> {
+  await tx.event.update({
     where: { id: eventId },
     data: {
       title: incoming.title,
       startsAt: incoming.startsAt,
       doorsOpenAt: incoming.doorsOpenAt ?? null,
       onSaleAt: incoming.onSaleAt ?? undefined,
+      localTimezone: incoming.venue.timezone ?? undefined,
       status: incoming.status,
       description: incoming.description ?? undefined,
       posterImage: incoming.posterImage ?? undefined,
       sourceUrl: incoming.sourceUrl ?? undefined,
       lastSyncedAt: new Date(),
+      ...(options.claimIdentity ? { source: incoming.source, sourceId: incoming.sourceId } : {}),
     },
   });
 
-  await mergeTicketOptions(eventId, incoming);
+  await mergeTicketOptions(tx, eventId, incoming);
 }
 
 /**
@@ -136,16 +169,18 @@ async function updateEvent(eventId: string, incoming: NormalisedEvent): Promise<
  *
  * Different providers sell different tiers for the same show, so replacing would
  * delete a competitor's listing on every run. A price change also writes a
- * snapshot, which is what makes price-drop alerts possible.
+ * snapshot, which is what makes price-drop alerts possible — but only a real
+ * change: a snapshot repeating the latest one would show movement that never
+ * happened.
  */
-async function mergeTicketOptions(eventId: string, incoming: NormalisedEvent): Promise<void> {
+async function mergeTicketOptions(tx: Db, eventId: string, incoming: NormalisedEvent): Promise<void> {
   for (const option of incoming.ticketOptions) {
-    const existing = await prisma.ticketOption.findFirst({
+    const existing = await tx.ticketOption.findFirst({
       where: { eventId, provider: option.provider, tierName: option.tierName },
     });
 
     if (!existing) {
-      const created = await prisma.ticketOption.create({
+      const created = await tx.ticketOption.create({
         data: {
           eventId,
           provider: option.provider,
@@ -158,7 +193,7 @@ async function mergeTicketOptions(eventId: string, incoming: NormalisedEvent): P
         },
       });
       if (option.priceMinor !== undefined) {
-        await prisma.ticketPriceSnapshot.create({
+        await tx.ticketPriceSnapshot.create({
           data: {
             ticketOptionId: created.id,
             priceMinor: option.priceMinor,
@@ -169,10 +204,7 @@ async function mergeTicketOptions(eventId: string, incoming: NormalisedEvent): P
       continue;
     }
 
-    const priceChanged =
-      option.priceMinor !== undefined && option.priceMinor !== existing.priceMinor;
-
-    await prisma.ticketOption.update({
+    await tx.ticketOption.update({
       where: { id: existing.id },
       data: {
         priceMinor: option.priceMinor ?? existing.priceMinor,
@@ -183,15 +215,23 @@ async function mergeTicketOptions(eventId: string, incoming: NormalisedEvent): P
       },
     });
 
-    if (priceChanged && option.priceMinor !== undefined) {
-      await prisma.ticketPriceSnapshot.create({
-        data: {
-          ticketOptionId: existing.id,
-          priceMinor: option.priceMinor,
-          currency: option.currency,
-        },
-      });
-    }
+    if (option.priceMinor === undefined) continue;
+    if (option.priceMinor === existing.priceMinor && option.currency === existing.currency) continue;
+
+    const latest = await tx.ticketPriceSnapshot.findFirst({
+      where: { ticketOptionId: existing.id },
+      orderBy: { observedAt: 'desc' },
+      select: { priceMinor: true, currency: true },
+    });
+    if (latest?.priceMinor === option.priceMinor && latest.currency === option.currency) continue;
+
+    await tx.ticketPriceSnapshot.create({
+      data: {
+        ticketOptionId: existing.id,
+        priceMinor: option.priceMinor,
+        currency: option.currency,
+      },
+    });
   }
 }
 

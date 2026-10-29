@@ -15,7 +15,11 @@
     "offline": "Kubonakala ungaxhunyiwe ku-inthanethi. Sikubonisa lokho esikugcine ngokugcina.",
     "notStated": "Akushiwo",
     "promoted": "Kukhangisiwe",
-    "seeAll": "Buka konke"
+    "seeAll": "Buka konke",
+    "crashTitle": "Kukhona okungahambanga kahle",
+    "crashBody": "I-Onstage ihlangabezane nenkinga engalindelekile. Zama futhi, uma iqhubeka, phinda ufake uhlelo lokusebenza.",
+    "setupTitle": "Le nguqulo ayilungiselelwe",
+    "setupBody": "Ikheli le-API (EXPO_PUBLIC_API_BASE_URL) alizange lisethwe ngesikhathi kwenziwa le nguqulo."
   },
   "auth": {
     "signInTitle": "Ngena",
@@ -203,7 +207,8 @@
       "push_notifications": "Ngithumelele izaziso",
       "marketing_email": "Ngithumelele i-imeyili ngemibukiso nezici",
       "analytics": "Siza ukwenza i-Onstage ibe ngcono ngedatha yokusetshenziswa"
-    }
+    },
+    "pushBlocked": "Izaziso zivaliwe ku-Onstage kuzilungiselelo zefoni yakho. Zivule lapho, bese uzama futhi."
   },
   "rating": {
     "title": "Linganisa u-{{name}}",

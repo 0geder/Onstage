@@ -1,6 +1,9 @@
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { request } from '../../src/api/client';
 import {
   useConsents,
   useMe,
@@ -9,6 +12,7 @@ import {
 } from '../../src/api/hooks';
 import { Button, Divider, Loading, Screen, SectionHeading } from '../../src/components/ui';
 import { forgetLocation } from '../../src/lib/location';
+import { enablePush } from '../../src/lib/push';
 import { colors, radii, spacing, typography } from '../../src/theme';
 
 /**
@@ -26,11 +30,38 @@ export default function PrivacyScreen() {
   const record = useRecordConsent();
   const deletion = useRequestDeletion();
   const [pending, setPending] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   if (consents.isLoading) return <Loading />;
 
-  const toggle = (type: string, granted: boolean) => {
+  const exportData = async () => {
+    setExporting(true);
+    try {
+      const data = await request<unknown>('/me/data-export');
+      const file = new File(Paths.cache, 'onstage-data-export.json');
+      file.write(JSON.stringify(data, null, 2));
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(file.uri, {
+          mimeType: 'application/json',
+          dialogTitle: t('privacy.exportData'),
+          UTI: 'public.json',
+        });
+      }
+    } catch (error) {
+      Alert.alert(t('privacy.exportData'), (error as Error).message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const toggle = async (type: string, requested: boolean) => {
     setPending(type);
+    let granted = requested;
+    // Push consent only means something if the OS lets us deliver.
+    if (type === 'push_notifications' && requested) {
+      granted = await enablePush();
+      if (!granted) Alert.alert(t('profile.notifications'), t('privacy.pushBlocked'));
+    }
     record.mutate(
       { entries: [{ type, granted }], source: 'settings' },
       {
@@ -81,7 +112,7 @@ export default function PrivacyScreen() {
             <Switch
               value={consent.granted}
               disabled={pending === consent.type}
-              onValueChange={(value) => toggle(consent.type, value)}
+              onValueChange={(value) => void toggle(consent.type, value)}
               trackColor={{ true: colors.accent, false: colors.border }}
               accessibilityLabel={consent.label}
             />
@@ -94,12 +125,8 @@ export default function PrivacyScreen() {
           <Button
             label={t('privacy.exportData')}
             variant="secondary"
-            onPress={() =>
-              Alert.alert(
-                t('privacy.exportData'),
-                'Your data export has been prepared and will be emailed to you.',
-              )
-            }
+            loading={exporting}
+            onPress={() => void exportData()}
           />
 
           {deletionRequested ? (

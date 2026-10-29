@@ -6,6 +6,8 @@ import configuration from './config/configuration';
 import { AuthModule } from './common/auth/auth.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { CacheModule } from './common/redis/cache.module';
+import { CacheService } from './common/redis/cache.service';
+import { RedisThrottlerStorage } from './common/redis/redis-throttler.storage';
 import { AdminModule } from './modules/admin/admin.module';
 import { ArtistsModule } from './modules/artists/artists.module';
 import { BadgesModule } from './modules/badges/badges.module';
@@ -26,8 +28,16 @@ import { UsersModule } from './modules/users/users.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
     // Coarse per-IP limit. The fine-grained limits that matter — posting,
-    // rating — live in the services that own those rules.
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
+    // rating — live in the services that own those rules. Counted in Redis so
+    // the limit holds across replicas.
+    ThrottlerModule.forRootAsync({
+      imports: [CacheModule],
+      inject: [CacheService],
+      useFactory: (cache: CacheService) => ({
+        throttlers: [{ ttl: 60_000, limit: 300 }],
+        storage: new RedisThrottlerStorage(cache),
+      }),
+    }),
     PrismaModule,
     CacheModule,
     AuthModule,

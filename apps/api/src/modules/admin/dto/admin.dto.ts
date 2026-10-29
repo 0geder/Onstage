@@ -1,8 +1,10 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
   EVENT_SOURCES,
   EVENT_STATUSES,
   LINEUP_ROLES,
+  SOCIAL_PLATFORMS,
+  STREAMING_PLATFORMS,
   TICKET_AVAILABILITIES,
   TICKET_PROVIDERS,
 } from '@onstage/shared';
@@ -16,7 +18,9 @@ import type {
   TicketProvider,
 } from '@onstage/shared';
 import { Type } from 'class-transformer';
+import { IsLinkMap } from '../../../common/validation/link-map.validator';
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsIn,
@@ -29,12 +33,18 @@ import {
   IsString,
   IsUrl,
   IsUUID,
+  IsTimeZone,
   Length,
+  Max,
   MaxLength,
   Min,
   MinLength,
   ValidateNested,
 } from 'class-validator';
+
+/** Public http(s) URLs only — never javascript:, data: or protocol-relative. */
+const HTTP_URL = { protocols: ['https', 'http'], require_protocol: true };
+const URL_MAX = 2048;
 
 export class CreateArtistDto {
   @ApiProperty()
@@ -52,7 +62,9 @@ export class CreateArtistDto {
   @ApiPropertyOptional({ description: 'Alternate spellings and stage names, used by search and by ingestion matching.' })
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(50)
   @IsString({ each: true })
+  @MaxLength(200, { each: true })
   aliases?: string[];
 
   @ApiPropertyOptional()
@@ -68,7 +80,9 @@ export class CreateArtistDto {
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(20)
   @IsString({ each: true })
+  @MaxLength(60, { each: true })
   genres?: string[];
 
   @ApiPropertyOptional()
@@ -85,22 +99,26 @@ export class CreateArtistDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsUrl(HTTP_URL)
+  @MaxLength(URL_MAX)
   profileImage?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsUrl(HTTP_URL)
+  @MaxLength(URL_MAX)
   bannerImage?: string;
 
   @ApiPropertyOptional({ description: 'Deep links out to the streaming services. Onstage hosts no audio.' })
   @IsOptional()
   @IsObject()
+  @IsLinkMap(STREAMING_PLATFORMS)
   streamingLinks?: StreamingLinks;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsObject()
+  @IsLinkMap(SOCIAL_PLATFORMS)
   socialLinks?: SocialLinks;
 
   @ApiPropertyOptional()
@@ -164,17 +182,19 @@ export class CreateVenueDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsUrl(HTTP_URL)
+  @MaxLength(URL_MAX)
   image?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsUrl()
+  @IsUrl(HTTP_URL)
+  @MaxLength(URL_MAX)
   website?: string;
 
   @ApiPropertyOptional({ default: 'Africa/Johannesburg' })
   @IsOptional()
-  @IsString()
+  @IsTimeZone()
   timezone?: string;
 
   // Accessibility and logistics. Omit a field when it is genuinely unknown —
@@ -200,6 +220,9 @@ export class CreateVenueDto {
   @IsBoolean()
   cloakroom?: boolean;
 }
+
+/** Every field optional and still validated — `Partial<>` alone is erased at runtime. */
+export class UpdateVenueDto extends PartialType(CreateVenueDto) {}
 
 export class LineupEntryDto {
   @ApiProperty()
@@ -240,7 +263,7 @@ export class CreateEventDto {
 
   @ApiPropertyOptional({ description: 'Defaults to the venue timezone.' })
   @IsOptional()
-  @IsString()
+  @IsTimeZone()
   localTimezone?: string;
 
   @ApiPropertyOptional({ description: 'ISO 8601 in UTC.' })
@@ -273,7 +296,8 @@ export class CreateEventDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsUrl(HTTP_URL)
+  @MaxLength(URL_MAX)
   posterImage?: string;
 
   @ApiPropertyOptional({ enum: EVENT_SOURCES, default: 'manual' })
@@ -283,7 +307,8 @@ export class CreateEventDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsUrl(HTTP_URL)
+  @MaxLength(URL_MAX)
   sourceUrl?: string;
 
   @ApiPropertyOptional({
@@ -297,6 +322,7 @@ export class CreateEventDto {
   @ApiPropertyOptional({ type: [LineupEntryDto] })
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(100)
   @ValidateNested({ each: true })
   @Type(() => LineupEntryDto)
   lineup?: LineupEntryDto[];
@@ -326,7 +352,7 @@ export class UpdateEventDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsTimeZone()
   localTimezone?: string;
 
   @ApiPropertyOptional({ nullable: true })
@@ -351,7 +377,8 @@ export class UpdateEventDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsUrl(HTTP_URL)
+  @MaxLength(URL_MAX)
   posterImage?: string;
 
   @ApiPropertyOptional()
@@ -368,6 +395,7 @@ export class UpdateEventDto {
 export class SetLineupDto {
   @ApiProperty({ type: [LineupEntryDto], description: 'Replaces the existing lineup entirely.' })
   @IsArray()
+  @ArrayMaxSize(100)
   @ValidateNested({ each: true })
   @Type(() => LineupEntryDto)
   entries!: LineupEntryDto[];
@@ -402,13 +430,15 @@ export class TicketOptionDto {
   availability?: TicketAvailability;
 
   @ApiProperty({ description: 'The provider checkout URL. Onstage never takes payment.' })
-  @IsUrl()
+  @IsUrl(HTTP_URL)
+  @MaxLength(URL_MAX)
   purchaseUrl!: string;
 }
 
 export class SetTicketOptionsDto {
   @ApiProperty({ type: [TicketOptionDto] })
   @IsArray()
+  @ArrayMaxSize(50)
   @ValidateNested({ each: true })
   @Type(() => TicketOptionDto)
   options!: TicketOptionDto[];
@@ -432,4 +462,78 @@ export class BanUserDto {
   @MinLength(3)
   @MaxLength(500)
   reason!: string;
+}
+
+export class SetPromotionDto {
+  @ApiProperty()
+  @IsBoolean()
+  isPromoted!: boolean;
+
+  @ApiPropertyOptional({ description: 'ISO 8601. Omit for an open-ended campaign.' })
+  @IsOptional()
+  @IsISO8601()
+  promotedUntil?: string;
+}
+
+// ── Admin list queries. Bounded so a typo cannot ask Postgres for everything. ──
+
+export class AdminLimitQueryDto {
+  @ApiPropertyOptional({ default: 50, minimum: 1, maximum: 200 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  limit = 50;
+}
+
+export class AdminVenuesQueryDto extends AdminLimitQueryDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  search?: string;
+}
+
+export class AdminEventsQueryDto extends AdminVenuesQueryDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  city?: string;
+
+  @ApiPropertyOptional({ enum: ['true', 'false'], default: 'true' })
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  upcoming: 'true' | 'false' = 'true';
+}
+
+export class AdminRunsQueryDto {
+  @ApiPropertyOptional({ default: 30, minimum: 1, maximum: 200 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  limit = 30;
+}
+
+export class AnomalyQueryDto {
+  @ApiPropertyOptional({ default: 24, minimum: 1, maximum: 720 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(720)
+  hours = 24;
+}
+
+export class ClickReportQueryDto {
+  @ApiPropertyOptional({ default: 30, minimum: 1, maximum: 365 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(365)
+  days = 30;
 }

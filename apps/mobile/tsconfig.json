@@ -2,10 +2,6 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    },
     // firebase/auth's React Native build (getReactNativePersistence etc.) is
     // only reachable through its "react-native" conditional export — Metro
     // resolves this automatically at runtime, but classic node resolution

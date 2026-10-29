@@ -25,6 +25,19 @@ export interface WorkerConfig {
   /** ...and their start times are within this many hours. */
   dedupeWindowHours: number;
   markets: string[];
+  /** IANA zone the cron patterns are read in, so "09:00 Thursday" is local. */
+  timezone: string;
+  /** Upper bound on a job's runtime; also how long its advisory lock may be held. */
+  jobLockMaxMs: number;
+  /** How long shutdown waits for running jobs before disconnecting anyway. */
+  shutdownTimeoutMs: number;
+  accountDeletion: {
+    cron: string;
+    /** Days between a deletion request and the data actually being removed. */
+    graceDays: number;
+  };
+  /** Firebase Admin credentials, the same ones the API uses. All three or none. */
+  firebase?: { projectId: string; clientEmail: string; privateKey: string };
   providers: {
     bandsintown: ProviderConfig;
     songkick: ProviderConfig;
@@ -43,6 +56,25 @@ export const config: WorkerConfig = {
   dedupeRadiusMetres: Number(process.env.DEDUPE_RADIUS_METRES ?? 500),
   dedupeWindowHours: Number(process.env.DEDUPE_WINDOW_HOURS ?? 24),
   markets: (process.env.INGESTION_MARKETS ?? 'ZA').split(',').map((m) => m.trim()),
+  timezone: process.env.WORKER_TIMEZONE ?? 'Africa/Johannesburg',
+  jobLockMaxMs: Number(process.env.JOB_MAX_RUNTIME_MS ?? 2 * 3_600_000),
+  shutdownTimeoutMs: Number(process.env.WORKER_SHUTDOWN_TIMEOUT_MS ?? 25_000),
+  accountDeletion: {
+    cron: process.env.ACCOUNT_DELETION_CRON ?? '30 3 * * *',
+    // The app promises removal "within 30 days"; a week leaves room to cancel.
+    graceDays: Number(process.env.DELETION_GRACE_DAYS ?? 7),
+  },
+  firebase:
+    process.env.FIREBASE_PROJECT_ID &&
+    process.env.FIREBASE_CLIENT_EMAIL &&
+    process.env.FIREBASE_PRIVATE_KEY
+      ? {
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          // Private keys are pasted with literal \n escapes; restore real newlines.
+          privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        }
+      : undefined,
   providers: {
     bandsintown: {
       // A provider with no credential is simply skipped. Missing keys must never

@@ -9,15 +9,22 @@ import Constants from 'expo-constants';
  * nothing throws its way to the user without a readable message.
  */
 
-const BASE_URL =
+const CONFIGURED_BASE_URL =
   process.env.EXPO_PUBLIC_API_BASE_URL ??
-  (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ??
-  'http://localhost:3000';
+  (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined);
+
+/** False in a release build that was made without EXPO_PUBLIC_API_BASE_URL. */
+export const apiConfigured = Boolean(CONFIGURED_BASE_URL) || __DEV__;
+
+// localhost is only a sensible default on a developer's machine; a release
+// build without a configured URL renders a setup error instead (see _layout).
+const BASE_URL = CONFIGURED_BASE_URL ?? 'http://localhost:3000';
 
 const API = `${BASE_URL.replace(/\/$/, '')}/v1`;
 
 const CACHE_PREFIX = 'onstage:cache:';
-const TOKEN_KEY = 'onstage:auth-token';
+/** Where earlier builds persisted the raw ID token; cleared on startup. */
+const LEGACY_TOKEN_KEY = 'onstage:auth-token';
 
 export class ApiError extends Error {
   constructor(
@@ -31,18 +38,23 @@ export class ApiError extends Error {
   }
 }
 
-let authToken: string | null = null;
+/**
+ * Supplies the bearer token for each request. Firebase registers itself here
+ * (see lib/auth): it caches the ID token in memory and refreshes it before it
+ * expires, so asking per request never sends a stale token and the token is
+ * never written to disk by us.
+ */
+type TokenProvider = (forceRefresh: boolean) => Promise<string | null>;
 
-export async function loadToken(): Promise<string | null> {
-  if (authToken) return authToken;
-  authToken = await AsyncStorage.getItem(TOKEN_KEY);
-  return authToken;
+let tokenProvider: TokenProvider = async () => null;
+
+export function setTokenProvider(provider: TokenProvider | null): void {
+  tokenProvider = provider ?? (async () => null);
 }
 
-export async function setToken(token: string | null): Promise<void> {
-  authToken = token;
-  if (token) await AsyncStorage.setItem(TOKEN_KEY, token);
-  else await AsyncStorage.removeItem(TOKEN_KEY);
+/** Removes the plaintext token older builds stored on the device. */
+export async function clearLegacyToken(): Promise<void> {
+  await AsyncStorage.removeItem(LEGACY_TOKEN_KEY).catch(() => undefined);
 }
 
 interface RequestOptions {
@@ -55,19 +67,29 @@ interface RequestOptions {
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const method = options.method ?? 'GET';
-  const token = await loadToken();
 
-  const headers: Record<string, string> = { Accept: 'application/json' };
-  if (options.body !== undefined) headers['Content-Type'] = 'application/json';
-  if (token) headers.Authorization = `Bearer ${token}`;
+  const send = async (forceRefresh: boolean) => {
+    const token = await tokenProvider(forceRefresh).catch(() => null);
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (options.body !== undefined) headers['Content-Type'] = 'application/json';
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return {
+      hadToken: Boolean(token),
+      response: await fetch(`${API}${path}`, {
+        method,
+        headers,
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        signal: options.signal,
+      }),
+    };
+  };
 
   try {
-    const response = await fetch(`${API}${path}`, {
-      method,
-      headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-      signal: options.signal,
-    });
+    const first = await send(false);
+    let response = first.response;
+    // A 401 with a token usually means it was revoked or expired mid-flight:
+    // force one refresh before treating the user as signed out.
+    if (response.status === 401 && first.hadToken) response = (await send(true)).response;
 
     if (!response.ok) {
       const payload = (await response.json().catch(() => null)) as

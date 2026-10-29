@@ -15,7 +15,11 @@
     "offline": "Dit lyk of jy vanlyn is. Ons wys wat ons laas gestoor het.",
     "notStated": "Nie vermeld nie",
     "promoted": "Geborg",
-    "seeAll": "Sien alles"
+    "seeAll": "Sien alles",
+    "crashTitle": "Iets het verkeerd geloop",
+    "crashBody": "Onstage het'n onverwagte probleem teëgekom. Probeer weer, en as dit aanhou gebeur, herinstalleer die toep.",
+    "setupTitle": "Hierdie weergawe is nie opgestel nie",
+    "setupBody": "Die API-adres (EXPO_PUBLIC_API_BASE_URL) is nie gestel toe hierdie weergawe gebou is nie."
   },
   "auth": {
     "signInTitle": "Meld aan",
@@ -203,7 +207,8 @@
       "push_notifications": "Stuur vir my kennisgewings",
       "marketing_email": "E-pos my oor vertonings en nuwe funksies",
       "analytics": "Help om Onstage te verbeter met gebruiksdata"
-    }
+    },
+    "pushBlocked": "Kennisgewings is vir Onstage in jou foon se instellings afgeskakel. Skakel dit daar aan en probeer weer."
   },
   "rating": {
     "title": "Beoordeel {{name}}",

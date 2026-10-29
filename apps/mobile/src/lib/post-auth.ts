@@ -1,4 +1,4 @@
-import type { Router } from 'expo-router';
+import type { useRouter } from 'expo-router';
 import { request } from '../api/client';
 import type { Me } from '../api/hooks';
 
@@ -10,7 +10,7 @@ import type { Me } from '../api/hooks';
  * authenticated request, so this is the one place that actually knows whether
  * onboarding has been completed, regardless of provider.
  */
-export async function routeAfterAuth(router: Router): Promise<void> {
+export async function routeAfterAuth(router: ReturnType<typeof useRouter>): Promise<void> {
   try {
     const me = await request<Me>('/me');
     router.replace(me.onboardedAt ? '/' : '/onboarding');

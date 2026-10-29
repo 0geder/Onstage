@@ -3,6 +3,7 @@ import { logger } from '../logger';
 import { fetchJson } from './http';
 import type { EventSourceAdapter, FetchWindow, NormalisedEvent } from './types';
 import { prisma } from '../prisma';
+import { DEFAULT_TIMEZONE, isValidTimezone, parseLocalDateTime } from '../timezone';
 
 /**
  * Bandsintown adapter.
@@ -24,6 +25,8 @@ interface BandsintownVenue {
   city?: string;
   country?: string;
   street_address?: string;
+  /** IANA zone. Not documented, but present on some responses; used when it is. */
+  timezone?: string;
 }
 
 interface BandsintownOffer {
@@ -42,6 +45,43 @@ interface BandsintownEvent {
   venue?: BandsintownVenue;
   offers?: BandsintownOffer[];
   title?: string;
+}
+
+/**
+ * Bandsintown's `datetime` is the venue's local wall-clock time with no offset,
+ * so the zone has to come from somewhere else. Its `country` is also a full
+ * name ("South Africa"), not an ISO code. Single-zone countries in and around
+ * the launch markets are listed; anything else falls back to SAST, which is
+ * right for every ZA venue and wrong by at most an hour or two in the region.
+ */
+const COUNTRIES: [code: string, name: string, timezone: string][] = [
+  ['ZA', 'south africa', 'Africa/Johannesburg'],
+  ['LS', 'lesotho', 'Africa/Maseru'],
+  ['SZ', 'eswatini', 'Africa/Mbabane'],
+  ['NA', 'namibia', 'Africa/Windhoek'],
+  ['BW', 'botswana', 'Africa/Gaborone'],
+  ['ZW', 'zimbabwe', 'Africa/Harare'],
+  ['ZM', 'zambia', 'Africa/Lusaka'],
+  ['MZ', 'mozambique', 'Africa/Maputo'],
+  ['MW', 'malawi', 'Africa/Blantyre'],
+  ['KE', 'kenya', 'Africa/Nairobi'],
+  ['TZ', 'tanzania', 'Africa/Dar_es_Salaam'],
+  ['UG', 'uganda', 'Africa/Kampala'],
+  ['NG', 'nigeria', 'Africa/Lagos'],
+  ['GH', 'ghana', 'Africa/Accra'],
+  ['GB', 'united kingdom', 'Europe/London'],
+];
+
+function countryCode(raw: string | undefined): string {
+  const value = (raw ?? '').trim();
+  if (value.length === 2) return value.toUpperCase();
+  const match = COUNTRIES.find(([, name]) => name === value.toLowerCase());
+  return match ? match[0] : value.slice(0, 2).toUpperCase();
+}
+
+function venueTimezone(venue: BandsintownVenue, country: string): string {
+  if (isValidTimezone(venue.timezone)) return venue.timezone;
+  return COUNTRIES.find(([code]) => code === country)?.[2] ?? DEFAULT_TIMEZONE;
 }
 
 /** How many known artists to poll per run, newest-followed first. */
@@ -102,11 +142,12 @@ export class BandsintownAdapter implements EventSourceAdapter {
       return null;
     }
 
-    const startsAt = new Date(raw.datetime);
-    if (Number.isNaN(startsAt.getTime())) return null;
-
-    const country = (raw.venue.country ?? '').slice(0, 2).toUpperCase();
+    const country = countryCode(raw.venue.country);
     if (window.markets.length > 0 && !window.markets.includes(country)) return null;
+
+    const timezone = venueTimezone(raw.venue, country);
+    const startsAt = parseLocalDateTime(raw.datetime, timezone);
+    if (!startsAt) return null;
 
     const artistName = raw.artist?.name?.trim();
     if (!artistName) return null;
@@ -137,6 +178,7 @@ export class BandsintownAdapter implements EventSourceAdapter {
         country: country || 'ZA',
         lat,
         lng,
+        timezone,
       },
       primaryArtist: {
         name: artistName,

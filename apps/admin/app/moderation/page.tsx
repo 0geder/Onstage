@@ -41,9 +41,7 @@ export default async function ModerationPage() {
         <div className="card">Nothing waiting. The queue is clear.</div>
       ) : (
         queue.map((comment) => {
-          const accountAgeDays = Math.floor(
-            (Date.now() - new Date(comment.author.createdAt).getTime()) / 86_400_000,
-          );
+          const accountAgeDays = daysSince(comment.author.createdAt);
 
           return (
             <div key={comment.id} className="card">
@@ -104,4 +102,12 @@ export default async function ModerationPage() {
       )}
     </>
   );
+}
+
+/**
+ * Whole days since a timestamp. This page is a server component rendered fresh
+ * per request (no client re-renders), so reading the clock here is intended.
+ */
+function daysSince(iso: string): number {
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
 }

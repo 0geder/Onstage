@@ -169,8 +169,9 @@ export class EventsService {
   /**
    * Group Plans: who this viewer knows is going.
    *
-   * Only people the viewer follows are ever named, and the response separates
-   * mutuals from one-way follows. Everyone else is a count, not a list — going
+   * Only mutual connections — the viewer follows them and they follow back —
+   * are ever named. Anyone can follow anyone, so a one-way follow must not be
+   * enough to see someone's plans. Everyone else is a count, not a list — going
    * to a show is not a public broadcast to strangers.
    */
   async groupPlans(eventId: string, viewerId: string | undefined) {
@@ -203,17 +204,16 @@ export class EventsService {
              u.display_name,
              u.avatar,
              a.state::text AS state,
-             EXISTS (
-               SELECT 1 FROM user_follows back
-               WHERE back.follower_id = u.id AND back.followee_id = ${viewerId}::uuid
-             ) AS mutual
+             TRUE AS mutual
       FROM user_follows f
+      JOIN user_follows back
+        ON back.follower_id = f.followee_id AND back.followee_id = f.follower_id
       JOIN users u ON u.id = f.followee_id
       JOIN attendances a ON a.user_id = u.id AND a.event_id = ${eventId}::uuid
       WHERE f.follower_id = ${viewerId}::uuid
         AND a.state IN ('going', 'interested')
         AND u.banned_at IS NULL
-      ORDER BY mutual DESC, u.display_name ASC
+      ORDER BY u.display_name ASC
       LIMIT 50
     `;
 

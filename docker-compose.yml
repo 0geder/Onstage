@@ -32,7 +32,12 @@ services:
       timeout: 5s
       retries: 10
 
+  # Object storage for posters/avatars. Nothing uploads yet, so it is opt-in:
+  # `docker compose --profile storage up -d`. The minio/minio image is no
+  # longer published on Docker Hub; point this at whichever S3-compatible
+  # image you standardise on before enabling it.
   minio:
+    profiles: ['storage']
     image: minio/minio:latest
     container_name: onstage-minio
     restart: unless-stopped

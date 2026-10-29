@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { Prisma, type CommentTag, type CommentThread } from '@prisma/client';
 import {
@@ -75,7 +76,7 @@ export class CommentsService {
       };
     }
 
-    const keyset = decodeCursor(options.cursor);
+    const keyset = decodeCursor(options.cursor, options.sort === 'top' ? 'number' : 'date');
     const where: Prisma.CommentWhereInput = {
       eventId,
       thread: options.thread,
@@ -412,11 +413,16 @@ export class CommentsService {
     };
   }
 
+  /**
+   * Fails closed: if the counters can't be read the post is refused, because
+   * an outage is exactly when a spam run would otherwise go unthrottled.
+   */
   private async enforceRateLimit(userId: string): Promise<void> {
     const minute = await this.cache.increment(
       `ratelimit:comment:${userId}:m`,
       RATE_LIMITS.perMinute.windowSeconds,
     );
+    if (minute === null) throw this.rateLimitUnavailable();
     if (minute > RATE_LIMITS.perMinute.max) {
       throw new BadRequestException('You are posting too quickly. Give it a minute.');
     }
@@ -424,9 +430,17 @@ export class CommentsService {
       `ratelimit:comment:${userId}:h`,
       RATE_LIMITS.perHour.windowSeconds,
     );
+    if (hour === null) throw this.rateLimitUnavailable();
     if (hour > RATE_LIMITS.perHour.max) {
       throw new BadRequestException('You have hit the hourly posting limit.');
     }
+  }
+
+  private rateLimitUnavailable(): ServiceUnavailableException {
+    this.logger.warn('Comment rate limiter unavailable (Redis down); refusing post.');
+    return new ServiceUnavailableException(
+      'Posting is temporarily unavailable. Please try again in a moment.',
+    );
   }
 
   private async replyPreviews(parentIds: string[]): Promise<Map<string, CommentWithAuthor[]>> {

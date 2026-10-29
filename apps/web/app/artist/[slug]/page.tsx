@@ -16,15 +16,17 @@ import {
   getSimilarArtists,
   WEB_BASE_URL,
 } from '../../../lib/api';
+import { jsonLd, safeUrl } from '../../../lib/safe';
 
 export const revalidate = 900;
 
 interface Props {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const artist = await getArtist(params.slug);
+  const { slug } = await params;
+  const artist = await getArtist(slug);
   if (!artist) return { title: 'Artist not found' };
 
   const description =
@@ -42,17 +44,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       url: publicArtistUrl(WEB_BASE_URL, artist.slug),
       type: 'profile',
-      images: artist.bannerImage
-        ? [{ url: artist.bannerImage }]
-        : artist.profileImage
-          ? [{ url: artist.profileImage }]
-          : undefined,
+      images: [safeUrl(artist.bannerImage) ?? safeUrl(artist.profileImage)]
+        .filter((url): url is string => Boolean(url))
+        .map((url) => ({ url })),
     },
   };
 }
 
 export default async function ArtistPage({ params }: Props) {
-  const artist = await getArtist(params.slug);
+  const { slug } = await params;
+  const artist = await getArtist(slug);
   if (!artist) notFound();
 
   const [upcoming, past, similar] = await Promise.all([
@@ -66,13 +67,13 @@ export default async function ArtistPage({ params }: Props) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(artistJsonLd(artist, upcoming?.items ?? [])),
+          __html: jsonLd(artistJsonLd(artist, upcoming?.items ?? [])),
         }}
       />
 
-      {artist.bannerImage ? (
+      {safeUrl(artist.bannerImage) ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img className="banner" src={artist.bannerImage} alt="" />
+        <img className="banner" src={safeUrl(artist.bannerImage)} alt="" />
       ) : null}
 
       <h1>
@@ -104,7 +105,7 @@ export default async function ArtistPage({ params }: Props) {
               <a
                 key={platform}
                 className="cta cta-secondary"
-                href={url}
+                href={safeUrl(url)}
                 rel="noopener"
                 target="_blank"
               >
@@ -177,13 +178,12 @@ function artistJsonLd(artist: Artist, upcoming: EventSummary[]) {
     name: artist.name,
     url: publicArtistUrl(WEB_BASE_URL, artist.slug),
     description: artist.bio ?? undefined,
-    image: artist.profileImage ?? undefined,
+    image: safeUrl(artist.profileImage),
     genre: artist.genres,
     foundingLocation: artist.homeCity ?? undefined,
-    sameAs: [
-      ...Object.values(artist.streamingLinks),
-      ...Object.values(artist.socialLinks),
-    ].filter(Boolean),
+    sameAs: [...Object.values(artist.streamingLinks), ...Object.values(artist.socialLinks)]
+      .map((url) => safeUrl(url))
+      .filter(Boolean),
     aggregateRating:
       artist.ratingAvg !== null && artist.ratingCount > 0
         ? {

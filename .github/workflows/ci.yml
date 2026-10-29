@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck, lint, test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: onstage
+          POSTGRES_PASSWORD: onstage
+          POSTGRES_DB: onstage
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U onstage -d onstage"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://onstage:onstage@localhost:5432/onstage
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build -w @onstage/shared
+      - run: npm run db:generate
+      - run: npm run db:migrate
+      - run: npm run typecheck
+      - name: Lint
+        run: |
+          npm run lint -w @onstage/api
+          npm run lint -w @onstage/worker
+          npm run lint -w @onstage/web
+          npm run lint -w @onstage/admin
+      - name: Test
+        run: |
+          npm test -w @onstage/shared
+          npm test -w @onstage/worker
+      - name: Mobile bundles for iOS and Android
+        working-directory: apps/mobile
+        env:
+          EXPO_PUBLIC_API_BASE_URL: https://api.onstage.co.za
+        run: npx expo export --platform android --platform ios --output-dir .expo-export
+
+  images:
+    name: Docker images
+    runs-on: ubuntu-latest
+    needs: check
+    strategy:
+      matrix:
+        target: [api, worker, web, admin, migrate]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: ${{ matrix.target }}
+          push: false
+          tags: onstage-${{ matrix.target }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}

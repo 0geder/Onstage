@@ -1,8 +1,10 @@
 import { Cron } from 'croner';
 import { config } from './config';
+import { withJobLock } from './job-lock';
 import { logger } from './logger';
 import { prisma } from './prisma';
 import { runIngestion } from './pipeline/run';
+import { executeAccountDeletions } from './jobs/account-deletion';
 import { drainOutbox } from './jobs/outbox';
 import { awardBadges, confirmAttendance, promptLiveRatings } from './jobs/post-show';
 import { queueOnSaleReminders, queuePriceDropAlerts, queueWeekendDigest } from './jobs/reminders';
@@ -10,22 +12,31 @@ import { queueOnSaleReminders, queuePriceDropAlerts, queueWeekendDigest } from '
 /**
  * The scheduled worker.
  *
- * Jobs never overlap with themselves (`protect: true`), because a slow ingestion
- * pass overlapping the next one would double-write and distort every counter.
+ * Jobs never overlap with themselves: `protect: true` covers this process, and
+ * a Postgres advisory lock (job-lock.ts) covers other replicas, because a slow
+ * ingestion pass overlapping the next one would double-write and distort every
+ * counter. Cron patterns are read in config.timezone, so "09:00 Thursday" is
+ * local time rather than UTC.
  */
 
 const jobs: Cron[] = [];
+const running = new Set<Promise<unknown>>();
 
 function schedule(name: string, pattern: string, task: () => Promise<unknown>): void {
-  const job = new Cron(pattern, { name, protect: true }, async () => {
+  const job = new Cron(pattern, { name, protect: true, timezone: config.timezone }, async () => {
     const started = Date.now();
+    const run = withJobLock(name, task);
+    running.add(run);
     try {
-      await task();
-      logger.debug({ job: name, ms: Date.now() - started }, 'Job finished');
+      const outcome = await run;
+      if (outcome.ran) logger.debug({ job: name, ms: Date.now() - started }, 'Job finished');
+      else logger.debug({ job: name }, 'Job skipped: another replica holds the lock');
     } catch (error) {
       // A failing job logs and waits for its next tick; it never takes the
       // process down and never blocks the other jobs.
       logger.error({ job: name, err: (error as Error).message }, 'Job failed');
+    } finally {
+      running.delete(run);
     }
   });
   jobs.push(job);
@@ -34,7 +45,7 @@ function schedule(name: string, pattern: string, task: () => Promise<unknown>): 
 
 async function main(): Promise<void> {
   logger.info(
-    { markets: config.markets, ingestion: config.ingestionEnabled },
+    { markets: config.markets, ingestion: config.ingestionEnabled, timezone: config.timezone },
     'Onstage worker starting',
   );
 
@@ -56,9 +67,21 @@ async function main(): Promise<void> {
   // Thursday morning, while the weekend is still plannable.
   schedule('reminders:weekend-digest', '0 9 * * 4', () => queueWeekendDigest());
 
+  // POPIA: carry out deletion requests once their grace period has passed.
+  schedule('account-deletion', config.accountDeletion.cron, () => executeAccountDeletions());
+
+  let stopping = false;
   const shutdown = async (signal: string) => {
-    logger.info({ signal }, 'Shutting down');
+    if (stopping) return;
+    stopping = true;
+    logger.info({ signal, inFlight: running.size }, 'Shutting down');
     for (const job of jobs) job.stop();
+
+    // Let running jobs finish (their transactions commit and locks release),
+    // but never hang a deploy on a stuck job.
+    const timeout = new Promise((resolve) => setTimeout(resolve, config.shutdownTimeoutMs));
+    await Promise.race([Promise.allSettled([...running]), timeout]);
+
     await prisma.$disconnect();
     process.exit(0);
   };

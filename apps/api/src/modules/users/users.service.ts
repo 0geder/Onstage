@@ -7,6 +7,7 @@ import {
 } from '@onstage/shared';
 import { toArtistSummary, toEventSummary } from '../../common/mappers';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { ConsentService } from '../consent/consent.service';
 import type { AuthUser } from '../../common/auth/auth-user';
 
 export interface UpdateProfileInput {
@@ -31,7 +32,10 @@ const MIN_ONBOARDING_FOLLOWS = 3;
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly consent: ConsentService,
+  ) {}
 
   async me(userId: string) {
     const user = await this.prisma.user.findUniqueOrThrow({
@@ -86,8 +90,14 @@ export class UsersService {
     if (input.displayName !== undefined) data.displayName = input.displayName;
     if (input.handle !== undefined) data.handle = input.handle;
     if (input.avatar !== undefined) data.avatar = input.avatar;
-    if (input.homeLat !== undefined) data.homeLat = input.homeLat;
-    if (input.homeLng !== undefined) data.homeLng = input.homeLng;
+    // Coordinates are only held with location consent (POPIA). Without it they
+    // are dropped rather than rejected, so the rest of the profile still saves.
+    if (input.homeLat !== undefined || input.homeLng !== undefined) {
+      if (await this.consent.hasConsent(userId, 'location')) {
+        if (input.homeLat !== undefined) data.homeLat = input.homeLat;
+        if (input.homeLng !== undefined) data.homeLng = input.homeLng;
+      }
+    }
     if (input.homeCity !== undefined) data.homeCity = input.homeCity;
     if (input.locale !== undefined) {
       if (!isSupportedLocale(input.locale)) {

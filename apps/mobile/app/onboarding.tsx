@@ -11,6 +11,7 @@ import {
 } from '../src/api/hooks';
 import { Avatar, Button, Chip, ChipRow, Loading, Screen } from '../src/components/ui';
 import { requestLocation } from '../src/lib/location';
+import { enablePush } from '../src/lib/push';
 import { colors, radii, spacing, typography } from '../src/theme';
 
 const MIN_FOLLOWS = 3;
@@ -66,6 +67,14 @@ export default function OnboardingScreen() {
         source: 'onboarding',
       });
     }
+
+    // Following artists is the user asking to hear about their shows, so this
+    // is the natural moment for the one OS permission prompt.
+    const pushEnabled = await enablePush();
+    consent.mutate({
+      entries: [{ type: 'push_notifications', granted: pushEnabled }],
+      source: 'onboarding',
+    });
 
     complete.mutate(
       { genres, artistIds: selected.map((artist) => artist.id) },
