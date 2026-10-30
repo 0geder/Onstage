@@ -128,7 +128,7 @@ eas build --profile production --platform all    # store builds (AAB + IPA), ver
 eas submit --profile production                  # Play internal track / App Store Connect
 ```
 
-Set the `EXPO_PUBLIC_FIREBASE_*` values, Google client IDs and `EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY` as EAS environment variables per profile. The API URL per profile is in `eas.json` (`api-staging.onstage.co.za` / `api.onstage.co.za` — change these to your real hosts). A release build without an API URL shows a setup-error screen rather than silently calling localhost. The icon, adaptive icon, splash and notification icon in `apps/mobile/assets` are placeholders generated from the wordmark; replace them with final artwork at the same sizes.
+Set the `EXPO_PUBLIC_FIREBASE_*` values, and Google client IDs as EAS environment variables per profile. The API URL per profile is in `eas.json` (`api-staging.onstage.co.za` / `api.onstage.co.za` — change these to your real hosts). A release build without an API URL shows a setup-error screen rather than silently calling localhost. The icon, adaptive icon, splash and notification icon in `apps/mobile/assets` are placeholders generated from the wordmark; replace them with final artwork at the same sizes.
 
 ## Deploying the server side
 
@@ -153,7 +153,7 @@ All variables live in [`.env.example`](.env.example), grouped by purpose:
 - **Auth** — `AUTH_MODE` (`dev` | `firebase`) and Firebase Admin credentials
 - **Admin CMS** — `ADMIN_API_TOKEN`, a shared secret held only by the CMS server process, never exposed to a browser
 - **Ingestion providers** — Bandsintown, Songkick, Ticketmaster, Quicket credentials. Each is independently optional; the worker adapter registry skips any provider with no key configured and logs that it did, rather than failing the run
-- **Streaming / Maps** — Spotify, Google Maps (`EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY` for the Android map)
+- **Streaming / Maps** — Spotify; the app's venue map uses MapLibre with OpenFreeMap tiles (no key)
 - **Push** — `PUSH_DELIVERY=expo` sends through the Expo push service (APNs + FCM); unset, the worker only logs notifications
 - **Object storage** — S3-compatible (MinIO locally)
 - **Mobile (Expo)** — `EXPO_PUBLIC_*` variables, bundled at build time

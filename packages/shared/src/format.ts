@@ -82,13 +82,26 @@ export function formatRelativeTime(iso: string, now = new Date()): string {
     ['hour', 3600],
     ['minute', 60],
   ];
-  const formatter = new Intl.RelativeTimeFormat('en-ZA', { numeric: 'auto' });
+  // Hermes (the React Native engine) has no Intl.RelativeTimeFormat, so the
+  // app falls back to plain English phrasing.
+  const format: (value: number, unit: Intl.RelativeTimeFormatUnit) => string =
+    typeof Intl.RelativeTimeFormat === 'function'
+      ? (value, unit) =>
+          new Intl.RelativeTimeFormat('en-ZA', { numeric: 'auto' }).format(value, unit)
+      : plainRelativeTime;
   for (const [unit, seconds] of units) {
     if (Math.abs(diffSeconds) >= seconds) {
-      return formatter.format(Math.round(diffSeconds / seconds), unit);
+      return format(Math.round(diffSeconds / seconds), unit);
     }
   }
-  return formatter.format(diffSeconds, 'second');
+  return format(diffSeconds, 'second');
+}
+
+function plainRelativeTime(value: number, unit: Intl.RelativeTimeFormatUnit): string {
+  if (value === 0) return 'now';
+  const count = Math.abs(value);
+  const label = `${count} ${unit}${count === 1 ? '' : 's'}`;
+  return value < 0 ? `${label} ago` : `in ${label}`;
 }
 
 export function formatRating(avg: number | null, count: number): string {

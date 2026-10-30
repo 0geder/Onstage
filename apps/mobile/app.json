@@ -53,6 +53,7 @@
       "expo-router",
       "expo-localization",
       "expo-apple-authentication",
+      "@maplibre/maplibre-react-native",
       [
         "expo-location",
         {

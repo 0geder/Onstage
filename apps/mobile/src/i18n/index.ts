@@ -1,3 +1,9 @@
+// Hermes on Android ships without Intl.PluralRules, which i18next needs for
+// the _one/_other plural keys. Installed only where it is missing.
+import '@formatjs/intl-pluralrules/polyfill.js';
+import '@formatjs/intl-pluralrules/locale-data/en.js';
+import '@formatjs/intl-pluralrules/locale-data/af.js';
+import '@formatjs/intl-pluralrules/locale-data/zu.js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getLocales } from 'expo-localization';
 import i18n from 'i18next';
@@ -46,8 +52,6 @@ export async function initI18n(): Promise<typeof i18n> {
     lng: initial,
     fallbackLng: 'en',
     supportedLngs: [...SUPPORTED_LOCALES],
-    // React Native has no Intl.PluralRules on older engines; i18next's own
-    // plural resolution is used instead, hence the _one/_other key suffixes.
     interpolation: { escapeValue: false },
     returnNull: false,
     // A key that exists but is empty should fall back, not render blank.

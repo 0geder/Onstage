@@ -1,5 +1,4 @@
 import { Link, useRouter } from 'expo-router';
-import * as AuthSession from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
@@ -35,7 +34,10 @@ export default function SignInScreen() {
     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    redirectUri: AuthSession.makeRedirectUri({ scheme: 'onstage' }),
+    // No redirectUri override: Google only accepts the platform's own scheme
+    // for native clients (the package name on Android, the reversed iOS client
+    // ID on iOS), which the provider derives itself. Both schemes are
+    // registered in app.config.js.
   });
 
   useEffect(() => {

@@ -20,3 +20,7 @@ apps/mobile/assets
 
 .git
 *.log
+
+# Service-account keys must never enter an image.
+*firebase-adminsdk*.json
+*serviceAccount*.json

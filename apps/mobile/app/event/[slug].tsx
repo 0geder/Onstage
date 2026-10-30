@@ -2,18 +2,9 @@ import { Image } from 'expo-image';
 import { Link, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useRef, useState, type ComponentRef } from 'react';
-import {
-  Alert,
-  Linking,
-  Pressable,
-  ScrollView,
-  Share,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import MapView, { Marker } from 'react-native-maps';
+import { Camera, Map as VenueMap, ViewAnnotation } from '@maplibre/maplibre-react-native';
 import {
   formatEventDateTime,
   formatMoney,
@@ -46,6 +37,9 @@ import { currentLocale } from '../../src/i18n';
 import { colors, radii, spacing, typography } from '../../src/theme';
 
 const WEB_BASE = process.env.EXPO_PUBLIC_WEB_BASE_URL ?? 'https://onstage.co.za';
+
+// OpenFreeMap: OpenStreetMap vector tiles with no key, account or usage cap.
+const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
 export default function EventScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
@@ -240,21 +234,14 @@ export default function EventScreen() {
 
         <SectionHeading title={t('event.gettingThere')} />
         <View style={styles.travel}>
-          <MapView
-            style={styles.map}
-            pointerEvents="none"
-            initialRegion={{
-              latitude: data.venue.lat,
-              longitude: data.venue.lng,
-              latitudeDelta: 0.02,
-              longitudeDelta: 0.02,
-            }}
-          >
-            <Marker
-              coordinate={{ latitude: data.venue.lat, longitude: data.venue.lng }}
-              title={data.venue.name}
-            />
-          </MapView>
+          <View style={styles.map} pointerEvents="none">
+            <VenueMap mapStyle={MAP_STYLE} dragPan={false} touchZoom={false} compass={false}>
+              <Camera initialViewState={{ center: [data.venue.lng, data.venue.lat], zoom: 14 }} />
+              <ViewAnnotation id="venue" lngLat={[data.venue.lng, data.venue.lat]}>
+                <View style={styles.mapPin} />
+              </ViewAnnotation>
+            </VenueMap>
+          </View>
 
           {data.venue.addressLine ? (
             <Text style={styles.address}>{data.venue.addressLine}</Text>
@@ -381,10 +368,7 @@ function VenueInformation({
         <InfoRow label={t('event.wheelchairAccess')} value={yesNo(venue.wheelchairAccess)} />
         <InfoRow label={t('event.cloakroom')} value={yesNo(venue.cloakroom)} />
         <InfoRow label={t('event.ageRestriction')} value={age ?? t('common.notStated')} />
-        <InfoRow
-          label={t('event.reentry')}
-          value={venue.reentryPolicy ?? t('common.notStated')}
-        />
+        <InfoRow label={t('event.reentry')} value={venue.reentryPolicy ?? t('common.notStated')} />
       </View>
     </View>
   );
@@ -437,7 +421,15 @@ const styles = StyleSheet.create({
   mutedBody: { ...typography.body, color: colors.textMuted },
 
   travel: { paddingHorizontal: spacing.lg, gap: spacing.md },
-  map: { width: '100%', height: 170, borderRadius: radii.md },
+  map: { width: '100%', height: 170, borderRadius: radii.md, overflow: 'hidden' },
+  mapPin: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.accent,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+  },
   address: { ...typography.caption, color: colors.textMuted },
   travelRow: { flexDirection: 'row', gap: spacing.sm },
   travelLabel: { ...typography.label, color: colors.textFaint },
