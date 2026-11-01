@@ -46,6 +46,7 @@ jobs:
       - name: Test
         run: |
           npm test -w @onstage/shared
+          npm test -w @onstage/api
           npm test -w @onstage/worker
       - name: Mobile bundles for iOS and Android
         working-directory: apps/mobile
