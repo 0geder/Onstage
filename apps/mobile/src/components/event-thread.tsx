@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -50,9 +50,12 @@ export function EventThread({
   const [replyTo, setReplyTo] = useState<ThreadComment | null>(null);
 
   // The event page flips to the have_tickets filter when a show is sold out.
-  useEffect(() => {
+  // Adjusted during render rather than in an effect, so there is no extra pass.
+  const [lastInitialTag, setLastInitialTag] = useState(initialTag);
+  if (initialTag !== lastInitialTag) {
+    setLastInitialTag(initialTag);
     if (initialTag !== undefined) setTag(initialTag);
-  }, [initialTag]);
+  }
 
   const thread = useThread(eventId, { thread: kind, tag, sort });
   const post = usePostComment(eventId);

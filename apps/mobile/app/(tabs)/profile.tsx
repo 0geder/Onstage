@@ -1,10 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
+import { Image } from 'expo-image';
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { FlatList, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useBadges, useFollowing, useMe, useReferralCode } from '../../src/api/hooks';
+import { useBadges, useFollowing, useMe, usePlans, useReferralCode } from '../../src/api/hooks';
+import { ApiError } from '../../src/api/client';
 import { signOutUser } from '../../src/lib/auth';
 import { ArtistTile } from '../../src/components/cards';
 import {
@@ -12,6 +14,7 @@ import {
   Button,
   Divider,
   EmptyState,
+  ErrorState,
   Loading,
   Screen,
   SectionHeading,
@@ -27,9 +30,20 @@ export default function ProfileScreen() {
   const following = useFollowing();
   const badges = useBadges();
   const referral = useReferralCode();
+  const plans = usePlans();
   const [copied, setCopied] = useState(false);
 
   if (me.isLoading) return <Loading />;
+
+  // A server that can't be reached is not the same as being signed out:
+  // telling a signed-in person to sign in again sends them round in circles.
+  if (me.error instanceof ApiError && me.error.status !== 401) {
+    return (
+      <Screen>
+        <ErrorState message={me.error.message} onRetry={() => void me.refetch()} />
+      </Screen>
+    );
+  }
 
   // Signed out is a normal state, not an error: everything except following,
   // saving and posting works without an account.
@@ -39,7 +53,9 @@ export default function ProfileScreen() {
         <EmptyState
           title={t('profile.signIn')}
           body={t('profile.signedOutBody')}
-          action={<Button label={t('profile.signIn')} onPress={() => router.push('/auth/sign-in')} />}
+          action={
+            <Button label={t('profile.signIn')} onPress={() => router.push('/auth/sign-in')} />
+          }
         />
       </Screen>
     );
@@ -78,6 +94,39 @@ export default function ProfileScreen() {
           <Count label={t('event.going')} value={data.counts.going} />
           <Count label={t('profile.ratings')} value={data.counts.ratings} />
         </View>
+
+        {/* Your gigs as a poster grid: the profile reads as the shows you are
+            into, the way a photo grid reads as someone's life. */}
+        {(plans.data?.length ?? 0) > 0 ? (
+          <View>
+            <SectionHeading title={t('profile.yourGigs')} />
+            <View style={styles.grid}>
+              {plans.data?.map(({ event }) => (
+                <Pressable
+                  key={event.id}
+                  accessibilityRole="link"
+                  accessibilityLabel={event.title}
+                  onPress={() => router.push(`/event/${event.slug}`)}
+                  style={styles.gridCell}
+                >
+                  {event.posterImage ? (
+                    <Image
+                      source={{ uri: event.posterImage }}
+                      style={styles.gridImage}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View style={[styles.gridImage, styles.gridFallback]}>
+                      <Text style={styles.gridTitle} numberOfLines={3}>
+                        {event.title}
+                      </Text>
+                    </View>
+                  )}
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         {badges.data && badges.data.badges.length > 0 ? (
           <View>
@@ -144,7 +193,9 @@ export default function ProfileScreen() {
           <Button
             label={t('profile.signOut')}
             variant="ghost"
-            onPress={() => void signOutUser().then(() => queryClient.clear())}
+            // resetQueries, not clear: clear drops the cache without telling the
+            // screens already showing it, so this one stayed signed in.
+            onPress={() => void signOutUser().then(() => queryClient.resetQueries())}
           />
         </View>
       </ScrollView>
@@ -164,12 +215,13 @@ function Count({ label, value }: { label: string; value: number }) {
 function SettingsLink({ href, label }: { href: string; label: string }) {
   return (
     <Link href={href as never} asChild>
-      <Pressable
-        accessibilityRole="link"
-        style={({ pressed }) => [styles.settingsRow, pressed && { opacity: 0.7 }]}
-      >
-        <Text style={styles.settingsLabel}>{label}</Text>
-        <Text style={styles.chevron}>›</Text>
+      <Pressable accessibilityRole="link">
+        {({ pressed }) => (
+          <View style={[styles.settingsRow, pressed && { opacity: 0.7 }]}>
+            <Text style={styles.settingsLabel}>{label}</Text>
+            <Text style={styles.chevron}>›</Text>
+          </View>
+        )}
       </Pressable>
     </Link>
   );
@@ -238,4 +290,9 @@ const styles = StyleSheet.create({
   settingsLabel: { ...typography.body, color: colors.text },
   chevron: { color: colors.textFaint, fontSize: 22 },
   signOut: { padding: spacing.lg },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 2 },
+  gridCell: { width: '33%', aspectRatio: 4 / 5 },
+  gridImage: { width: '100%', height: '100%', backgroundColor: colors.surface },
+  gridFallback: { justifyContent: 'flex-end', padding: spacing.sm },
+  gridTitle: { ...typography.caption, color: colors.text },
 });

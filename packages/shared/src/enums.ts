@@ -41,6 +41,16 @@ export const TICKET_PROVIDERS = [
 ] as const;
 export type TicketProvider = (typeof TICKET_PROVIDERS)[number];
 
+/** How each seller writes its own name. */
+export const TICKET_PROVIDER_LABELS: Record<TicketProvider, string> = {
+  quicket: 'Quicket',
+  webtickets: 'Webtickets',
+  computicket: 'Computicket',
+  ticketmaster: 'Ticketmaster',
+  howler: 'Howler',
+  other: 'Ticket seller',
+};
+
 export const TICKET_AVAILABILITIES = ['available', 'low', 'sold_out'] as const;
 export type TicketAvailability = (typeof TICKET_AVAILABILITIES)[number];
 
@@ -67,6 +77,10 @@ export type ReportReason = (typeof REPORT_REASONS)[number];
 export const REPORT_STATUSES = ['open', 'actioned', 'dismissed'] as const;
 export type ReportStatus = (typeof REPORT_STATUSES)[number];
 
+/** Claim-your-profile review. Only an operator moves a claim out of `pending`. */
+export const ARTIST_CLAIM_STATUSES = ['pending', 'approved', 'rejected'] as const;
+export type ArtistClaimStatus = (typeof ARTIST_CLAIM_STATUSES)[number];
+
 export const STREAMING_PLATFORMS = [
   'spotify',
   'apple_music',
@@ -78,6 +92,24 @@ export type StreamingPlatform = (typeof STREAMING_PLATFORMS)[number];
 
 export const SOCIAL_PLATFORMS = ['instagram', 'x', 'tiktok', 'facebook'] as const;
 export type SocialPlatform = (typeof SOCIAL_PLATFORMS)[number];
+
+/** Where a show is broadcast live, for fans who cannot be in the room. */
+export const LIVESTREAM_PLATFORMS = [
+  'youtube',
+  'facebook',
+  'instagram',
+  'tiktok',
+  'twitch',
+] as const;
+export type LivestreamPlatform = (typeof LIVESTREAM_PLATFORMS)[number];
+
+export const LIVESTREAM_PLATFORM_LABELS: Record<LivestreamPlatform, string> = {
+  youtube: 'YouTube',
+  facebook: 'Facebook',
+  instagram: 'Instagram',
+  tiktok: 'TikTok',
+  twitch: 'Twitch',
+};
 
 /** Human-readable labels for UI copy. South African English throughout. */
 export const EVENT_STATUS_LABELS: Record<EventStatus, string> = {

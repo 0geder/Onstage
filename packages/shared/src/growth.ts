@@ -29,9 +29,12 @@ export const NOTIFICATION_CATEGORIES = [
   'new_event_announced',
   'on_sale_reminder',
   'price_drop',
+  'tickets_back',
   'weekend_digest',
   'post_show_rating',
   'thread_replies',
+  // Account notice, not a preference: the answer to a claim the user made.
+  'artist_claim_reviewed',
 ] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 
@@ -41,6 +44,8 @@ export interface NotificationPrefs {
   /** Hours before an on-sale moment to send the reminder. */
   onSaleLeadTimeHours: number;
   priceDrop: boolean;
+  /** A sold-out tier for a show you saved is back on sale. */
+  ticketsBack: boolean;
   weekendDigest: boolean;
   postShowRating: boolean;
   threadReplies: boolean;
@@ -52,6 +57,7 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   onSaleReminder: true,
   onSaleLeadTimeHours: 24,
   priceDrop: true,
+  ticketsBack: true,
   weekendDigest: true,
   postShowRating: true,
   threadReplies: true,

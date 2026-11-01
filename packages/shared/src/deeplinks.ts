@@ -64,6 +64,15 @@ export function boltLink(dest: RideDestination): DeepLinkPair {
   };
 }
 
+/**
+ * inDrive: widely used in South Africa, but it publishes no deep link that
+ * pre-fills a destination, so this only opens the app (or its site). The app
+ * copies the venue address for the rider to paste.
+ */
+export function indriveLink(): DeepLinkPair {
+  return { app: 'indriver://', web: 'https://indrive.com/' };
+}
+
 export function googleMapsDirections(dest: GeoPoint, placeId?: string): DeepLinkPair {
   const params = {
     api: '1',

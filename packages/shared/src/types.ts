@@ -1,9 +1,11 @@
 import type {
+  ArtistClaimStatus,
   AttendanceState,
   CommentTag,
   EventSourceName,
   EventStatus,
   LineupRole,
+  LivestreamPlatform,
   SocialPlatform,
   StreamingPlatform,
   TicketAvailability,
@@ -12,6 +14,7 @@ import type {
 
 export type StreamingLinks = Partial<Record<StreamingPlatform, string>>;
 export type SocialLinks = Partial<Record<SocialPlatform, string>>;
+export type LivestreamLinks = Partial<Record<LivestreamPlatform, string>>;
 
 export interface ExternalIds {
   bandsintown_id?: string;
@@ -47,6 +50,26 @@ export interface Artist extends ArtistSummary {
   liveRatingCount: number;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Per-viewer fields on the artist profile response. Signed out, all are false or null. */
+export interface ArtistViewerState {
+  viewerIsFollowing: boolean;
+  /** An approved claim on this profile, or platform staff: may edit it. */
+  viewerManages: boolean;
+  /** The viewer's own claim on this profile, if they have made one. */
+  viewerClaimStatus: ArtistClaimStatus | null;
+}
+
+/** A claim as its claimant sees it. The evidence is visible only to them and to operators. */
+export interface ArtistClaim {
+  id: string;
+  status: ArtistClaimStatus;
+  evidence: string;
+  contactUrl: string | null;
+  createdAt: string;
+  reviewedAt: string | null;
+  artist: ArtistSummary;
 }
 
 export interface Venue {
@@ -98,6 +121,9 @@ export interface EventSummary {
   isPromoted: boolean;
   primaryArtist: ArtistSummary;
   venue: Pick<Venue, 'id' | 'name' | 'city' | 'country' | 'lat' | 'lng'>;
+  /** Social proof on feed cards: how many people have saved or committed. */
+  interestedCount: number;
+  goingCount: number;
   /** Present on geo queries only. */
   distanceKm?: number;
 }
@@ -113,10 +139,14 @@ export interface EventDetail extends EventSummary {
   lineup: LineupEntry[];
   ticketOptions: TicketOption[];
   priceRange: PriceRange | null;
+  /** Where the show is broadcast live. Empty for most gigs. */
+  livestreamLinks: LivestreamLinks;
   commentCount: number;
   attendance: AttendanceCounts;
   /** The signed-in user's own state, null when unauthenticated. */
   viewerAttendance: AttendanceState | null;
+  /** True when the viewer may edit this event's livestream links. */
+  viewerManages: boolean;
 }
 
 export interface PriceRange {

@@ -1,13 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   Artist,
+  ArtistClaim,
   ArtistSearchResult,
   ArtistSummary,
+  ArtistViewerState,
   CommentSort,
   CommentTag,
   CommentThread,
   DiscoveryFeed,
   EventDetail,
+  LivestreamLinks,
   EventSummary,
   Paginated,
   ThreadComment,
@@ -88,7 +91,7 @@ export function useArtist(idOrSlug: string) {
   return useQuery({
     queryKey: queryKeys.artist(idOrSlug),
     queryFn: () =>
-      request<Artist & { viewerIsFollowing: boolean }>(`/artists/${idOrSlug}`, {
+      request<Artist & ArtistViewerState>(`/artists/${idOrSlug}`, {
         cache: { key: `artist:${idOrSlug}`, ttlSeconds: 3600 },
       }),
   });
@@ -114,7 +117,7 @@ export function useSimilarArtists(artistId: string) {
   });
 }
 
-export function useFollowArtist(artistId: string) {
+export function useFollowArtist(artistId: string, slug: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (follow: boolean) =>
@@ -122,9 +125,45 @@ export function useFollowArtist(artistId: string) {
         method: follow ? 'POST' : 'DELETE',
       }),
     onSuccess: () => {
-      void client.invalidateQueries({ queryKey: queryKeys.artist(artistId) });
+      invalidateArtist(client, artistId, slug);
       void client.invalidateQueries({ queryKey: queryKeys.following() });
     },
+  });
+}
+
+// ── Claim and manage a profile ────────────────────────────
+
+/**
+ * The profile screen is keyed by slug and these writes are made by id, so both
+ * cache entries are refreshed.
+ */
+function invalidateArtist(client: ReturnType<typeof useQueryClient>, id: string, slug: string) {
+  void client.invalidateQueries({ queryKey: queryKeys.artist(id) });
+  void client.invalidateQueries({ queryKey: queryKeys.artist(slug) });
+}
+
+export function useClaimArtist(artistId: string, slug: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { evidence: string; contactUrl?: string }) =>
+      request<ArtistClaim>(`/artists/${artistId}/claims`, { method: 'POST', body: input }),
+    onSuccess: () => invalidateArtist(client, artistId, slug),
+  });
+}
+
+export interface ArtistProfileUpdate {
+  bio?: string | null;
+  homeCity?: string | null;
+  streamingLinks?: Artist['streamingLinks'];
+  socialLinks?: Artist['socialLinks'];
+}
+
+export function useUpdateArtistProfile(artistId: string, slug: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ArtistProfileUpdate) =>
+      request<Artist>(`/artists/${artistId}`, { method: 'PATCH', body: input }),
+    onSuccess: () => invalidateArtist(client, artistId, slug),
   });
 }
 
@@ -149,6 +188,7 @@ export interface TravelOptions {
   rides: {
     bolt: { app: string; web: string };
     uber: { app: string; web: string };
+    indrive: { app: string; web: string };
   };
   disclaimer: string;
 }
@@ -185,7 +225,13 @@ export function useGroupPlans(eventId: string) {
   });
 }
 
-export function useSetAttendance(eventId: string) {
+/** The event screen is keyed by slug and writes are made by id, so both are refreshed. */
+function invalidateEvent(client: ReturnType<typeof useQueryClient>, id: string, slug: string) {
+  void client.invalidateQueries({ queryKey: queryKeys.event(id) });
+  void client.invalidateQueries({ queryKey: queryKeys.event(slug) });
+}
+
+export function useSetAttendance(eventId: string, slug: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: (state: 'interested' | 'going' | null) =>
@@ -193,10 +239,23 @@ export function useSetAttendance(eventId: string) {
         ? request(`/events/${eventId}/attendance`, { method: 'DELETE' })
         : request(`/events/${eventId}/attendance`, { method: 'PUT', body: { state } }),
     onSuccess: () => {
-      void client.invalidateQueries({ queryKey: queryKeys.event(eventId) });
+      invalidateEvent(client, eventId, slug);
       void client.invalidateQueries({ queryKey: queryKeys.going(eventId) });
       void client.invalidateQueries({ queryKey: queryKeys.plans() });
     },
+  });
+}
+
+/** "Watch live" links, for the headliner's verified managers. */
+export function useSetLivestreams(eventId: string, slug: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (links: LivestreamLinks) =>
+      request<LivestreamLinks>(`/events/${eventId}/livestreams`, {
+        method: 'PUT',
+        body: { links },
+      }),
+    onSuccess: () => invalidateEvent(client, eventId, slug),
   });
 }
 
@@ -390,6 +449,17 @@ export function useOnboardingGenres() {
   });
 }
 
+/** Artists with upcoming shows, so the first follows fill the feed. */
+export function useOnboardingArtists(genres: string[]) {
+  return useQuery({
+    queryKey: ['onboardingArtists', ...genres] as const,
+    queryFn: () =>
+      request<ArtistSummary[]>(
+        `/me/onboarding/artists?genres=${encodeURIComponent(genres.join(','))}`,
+      ),
+  });
+}
+
 export function useCompleteOnboarding() {
   const client = useQueryClient();
   return useMutation({
@@ -423,10 +493,8 @@ export function useConsents() {
 export function useRecordConsent() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: {
-      entries: { type: string; granted: boolean }[];
-      source?: string;
-    }) => request<ConsentState[]>('/me/consents', { method: 'POST', body: input }),
+    mutationFn: (input: { entries: { type: string; granted: boolean }[]; source?: string }) =>
+      request<ConsentState[]>('/me/consents', { method: 'POST', body: input }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: queryKeys.consents() });
       void client.invalidateQueries({ queryKey: queryKeys.me() });

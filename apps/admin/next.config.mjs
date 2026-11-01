@@ -1,3 +1,4 @@
+import { withSentryConfig } from '@sentry/nextjs/config';
 import { fileURLToPath } from 'node:url';
 
 /** The CMS is never public content: no framing, no indexing, no sniffing. */
@@ -31,4 +32,12 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// Uploads source maps so reports show real file names and lines. Without
+// SENTRY_AUTH_TOKEN (local builds) the upload is skipped and nothing else changes.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT_ADMIN ?? process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  telemetry: false,
+});

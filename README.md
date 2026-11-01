@@ -170,7 +170,7 @@ These are load-bearing, not incidental — several are enforced in code, not jus
 - **No real-time artist location tracking, ever.** Only announced and confirmed appearances. There is no field on `User` or anywhere else that means "where an artist is right now," and there never will be.
 - **No audio hosting.** Streaming buttons deep-link out to Spotify/Apple Music/YouTube/SoundCloud/Audiomack. The Spotify preview embed is the only audio surface, and it's the provider's own iframe.
 - **No ticket payments.** Every "Get tickets" action links to the provider's own checkout. The API's `tickets` module only records a click for affiliate attribution — it never touches a card number.
-- **No rideshare booking.** Uber and Bolt are deep links only (`uber://`, `bolt://`, with web fallbacks). Bolt is listed first — larger South African footprint.
+- **No rideshare booking.** Uber, Bolt and inDrive are deep links only (`uber://`, `bolt://`, `indriver://`, with web fallbacks; inDrive cannot pre-fill the destination, so the app copies the venue address). Bolt is listed first — larger South African footprint.
 - **No user-to-user payment processing.** The event thread hosts resale *conversation* only. A non-dismissible warning banner ships with every thread response. Automated scam-pattern scoring (offsite payment requests, crypto wallets, urgency language, new accounts posting only sale offers) auto-hides high-scoring posts pending human review — nothing is ever silently deleted.
 - **Graceful degradation.** The API's cache layer serves stale data on a Redis outage rather than failing; the mobile client caches GET responses and serves them when offline; ingestion adapters degrade to "skip this provider" rather than aborting a run.
 

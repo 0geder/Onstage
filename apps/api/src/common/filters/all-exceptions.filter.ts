@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import * as Sentry from '@sentry/nestjs';
 import type { Request, Response } from 'express';
 
 interface ErrorBody {
@@ -38,6 +39,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
         `${request.method} ${request.url} -> ${status}`,
         exception instanceof Error ? exception.stack : String(exception),
       );
+      // Only our own failures: a 4xx is the caller's mistake, not a bug.
+      Sentry.captureException(exception);
     }
 
     const body: ErrorBody = {

@@ -63,7 +63,39 @@
     "rateThisArtist": "Rate this artist",
     "noUpcoming": "No announced shows right now. Follow to be told when there are.",
     "noPast": "No past shows on record.",
-    "verified": "Verified"
+    "verified": "Verified",
+    "editProfile": "Edit profile",
+    "claimPrompt": "Are you {{name}}? Claim this profile",
+    "claimPending": "Your claim to manage this profile is being reviewed."
+  },
+  "claim": {
+    "title": "Claim {{name}}",
+    "intro": "If you are {{name}}, or you manage them, tell us who you are. Someone at Onstage checks every claim by hand, usually by getting in touch through an official account, so it can take a few days.",
+    "evidenceLabel": "Who you are and how we can check it",
+    "evidencePlaceholder": "e.g. I manage the band. Message us on our official Instagram to confirm.",
+    "evidenceHint": "At least {{min}} characters.",
+    "contactLabel": "Official link (optional)",
+    "contactPlaceholder": "Website, Instagram or another official profile",
+    "submit": "Send claim",
+    "signInTitle": "Sign in to claim this profile",
+    "signInBody": "Once the claim is verified, the profile is handed to the account you sign in with.",
+    "pendingTitle": "Your claim is being reviewed",
+    "pendingBody": "We’ll let you know once someone at Onstage has checked it.",
+    "managesTitle": "You manage this profile",
+    "managesBody": "You can edit its bio, home city and links.",
+    "rejectedNotice": "We couldn’t verify your last claim. You can try again with more detail, such as a link from an official account."
+  },
+  "artistEdit": {
+    "title": "Edit profile",
+    "bio": "Bio",
+    "bioPlaceholder": "Tell fans who you are and what a show is like",
+    "homeCity": "Home city",
+    "streaming": "Streaming links",
+    "social": "Social links",
+    "linkPlaceholder": "https://…",
+    "save": "Save changes",
+    "notAllowedTitle": "You can’t edit this profile",
+    "notAllowedBody": "Only a verified manager of {{name}} can make changes. Claim the profile first."
   },
   "event": {
     "lineup": "Line-up",
@@ -91,8 +123,17 @@
     "nobodyYouKnow": "Nobody you follow yet",
     "totalGoing_one": "{{count}} person going",
     "totalGoing_other": "{{count}} people going",
-    "rideDisclaimer": "Onstage does not provide transport. These open Bolt, Uber or your maps app.",
-    "ticketDisclaimer": "Tickets are sold by the provider, not by Onstage."
+    "rideDisclaimer": "Onstage does not provide transport. These open Bolt, Uber, inDrive or your maps app.",
+    "notifyTicketsBack": "Tell me if tickets come back",
+    "ticketsBackWatching": "We'll let you know if tickets come back on sale.",
+    "openInDrive": "Open inDrive",
+    "indriveAddressCopied": "Venue address copied. Paste it as your destination in inDrive.",
+    "ticketDisclaimer": "Tickets are sold by the provider, not by Onstage.",
+    "watchLive": "Watch live",
+    "watchLiveNow": "Live now",
+    "watchLiveHint": "Streamed live by the artist. Follow the stream now so you're there when it starts.",
+    "addLivestream": "Add a livestream link",
+    "editLivestreams": "Edit livestream links"
   },
   "thread": {
     "title": "Thread",
@@ -139,7 +180,12 @@
     "locationRationale": "Onstage uses your location to show gigs near you. You can skip this and pick a city instead.",
     "radius": "Within {{km}} km",
     "allGenres": "All genres",
-    "distanceAway": "{{km}} km away"
+    "distanceAway": "{{km}} km away",
+    "forYou": "For you",
+    "becauseYouFollow": "You follow them · {{venue}}",
+    "socialProof": "{{interested}} interested · {{going}} going",
+    "doubleTapHint": "Double-tap to save this gig",
+    "openThread": "Open the gig and its conversation"
   },
   "onboarding": {
     "welcome": "Find out where your artists are playing",
@@ -154,7 +200,8 @@
     "locationBody": "We use your location only to find nearby gigs. You can say no and still use everything else.",
     "allowLocation": "Allow location",
     "notNow": "Not now",
-    "finish": "Start exploring"
+    "finish": "Start exploring",
+    "searchArtists": "Search for an artist"
   },
   "profile": {
     "title": "Profile",
@@ -175,13 +222,15 @@
     "copied": "Copied",
     "signIn": "Sign in",
     "signOut": "Sign out",
-    "signedOutBody": "Sign in to follow artists, save shows and join the conversation."
+    "signedOutBody": "Sign in to follow artists, save shows and join the conversation.",
+    "yourGigs": "Your gigs"
   },
   "notifications": {
     "newEventAnnounced": "New shows from artists I follow",
     "onSaleReminder": "On-sale reminders",
     "onSaleLeadTime": "Remind me {{hours}} hours before",
     "priceDrop": "Price drops",
+    "ticketsBack": "Tickets back on sale",
     "weekendDigest": "Weekly what’s-on digest",
     "postShowRating": "Rate a show the morning after",
     "threadReplies": "Replies to my comments",
@@ -232,5 +281,17 @@
     "support": "Support",
     "opener": "Opener",
     "dj_set": "DJ set"
+  },
+  "livestreamEdit": {
+    "title": "Where can fans watch live?",
+    "body": "Paste the link to your live, channel or page. It shows on the event as a “Watch live” button, and as “Live now” once the show starts.",
+    "save": "Save links",
+    "notAllowedTitle": "You can’t edit this event",
+    "notAllowedBody": "Only the headliner’s verified team can add livestream links."
+  },
+  "stories": {
+    "rail": "Artists with shows coming up",
+    "open": "{{name}}'s upcoming show",
+    "viewGig": "View gig"
   }
 }

@@ -248,6 +248,30 @@ export class UsersService {
     `;
   }
 
+  /**
+   * Artists to offer during onboarding: the ones with upcoming shows, so
+   * whatever a new user follows puts something in their feed straight away.
+   * Picked genres move matching artists up but never empty the list — most of
+   * the catalogue has no genre yet.
+   */
+  async suggestedArtists(genres: string[], limit = 30) {
+    const ranked = await this.prisma.$queryRaw<{ id: string }[]>`
+      SELECT a.id
+      FROM artists a
+      JOIN event_lineups l ON l.artist_id = a.id
+      JOIN events e ON e.id = l.event_id
+      WHERE e.starts_at > NOW() AND e.status <> 'cancelled'
+      GROUP BY a.id
+      ORDER BY (a.genres && ${genres}::text[]) DESC, COUNT(*) DESC, a.follower_count DESC, a.name
+      LIMIT ${limit}
+    `;
+    const order = new Map(ranked.map((row, index) => [row.id, index]));
+    const artists = await this.prisma.artist.findMany({ where: { id: { in: [...order.keys()] } } });
+    return artists
+      .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+      .map(toArtistSummary);
+  }
+
   // ── Person-to-person follows (Group Plans) ───────────────
 
   async followUser(followerId: string, followeeId: string) {

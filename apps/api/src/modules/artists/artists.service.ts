@@ -1,12 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, type Artist as ArtistRow } from '@prisma/client';
 import type { Artist, ArtistSummary, EventSummary, Paginated } from '@onstage/shared';
+import type { AuthUser } from '../../common/auth/auth-user';
 import { CacheKeys, CacheTtl } from '../../common/redis/cache-keys';
 import { CacheService } from '../../common/redis/cache.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ARTIST_COLUMNS } from '../../common/sql';
 import { decodeCursor, pageOf } from '../../common/util/cursor';
 import { toArtist, toArtistSummary, toEventSummary } from '../../common/mappers';
+import { ArtistClaimsService } from './artist-claims.service';
+import type { UpdateArtistProfileDto } from './dto/artist-profile.dto';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -17,6 +20,7 @@ export class ArtistsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cache: CacheService,
+    private readonly claims: ArtistClaimsService,
   ) {}
 
   /** Profiles are addressable by either UUID or slug, so shared links stay readable. */
@@ -32,6 +36,36 @@ export class ArtistsService {
     const artist = toArtist(row);
     await this.cache.set(CacheKeys.artist(idOrSlug), artist, CacheTtl.artist);
     return artist;
+  }
+
+  /**
+   * A verified manager editing their own profile. Only the presentational
+   * fields are open to them; blank text is stored as null, never as "".
+   */
+  async updateProfile(user: AuthUser, id: string, input: UpdateArtistProfileDto): Promise<Artist> {
+    await this.findRowOrFail(id);
+    if (!(await this.claims.canManage(user, id))) {
+      throw new ForbiddenException('Only a verified manager of this profile can edit it.');
+    }
+
+    const blankToNull = (value: string | null) => (value?.trim() ? value.trim() : null);
+
+    const data: Prisma.ArtistUpdateInput = {};
+    if (input.bio !== undefined) data.bio = blankToNull(input.bio);
+    if (input.homeCity !== undefined) data.homeCity = blankToNull(input.homeCity);
+    if (input.profileImage !== undefined) data.profileImage = input.profileImage;
+    if (input.bannerImage !== undefined) data.bannerImage = input.bannerImage;
+    // A null map from the client means "no links", which the column stores as {}.
+    if (input.streamingLinks !== undefined) {
+      data.streamingLinks = (input.streamingLinks ?? {}) as Prisma.InputJsonValue;
+    }
+    if (input.socialLinks !== undefined) {
+      data.socialLinks = (input.socialLinks ?? {}) as Prisma.InputJsonValue;
+    }
+
+    const row = await this.prisma.artist.update({ where: { id }, data });
+    await this.cache.invalidate(CacheKeys.artist(id), CacheKeys.artist(row.slug));
+    return toArtist(row);
   }
 
   async findRowOrFail(id: string): Promise<ArtistRow> {

@@ -28,6 +28,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
                 <Link href="/events/new">Add event</Link>
                 <Link href="/venues">Venues</Link>
                 <Link href="/moderation">Moderation</Link>
+                <Link href="/claims">Artist claims</Link>
                 <Link href="/ingestion">Ingestion</Link>
               </nav>
               <div className="operator">

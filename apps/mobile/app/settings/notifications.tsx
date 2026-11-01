@@ -12,6 +12,7 @@ const TOGGLES = [
   'newEventAnnounced',
   'onSaleReminder',
   'priceDrop',
+  'ticketsBack',
   'weekendDigest',
   'postShowRating',
   'threadReplies',

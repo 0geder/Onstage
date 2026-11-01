@@ -1,9 +1,15 @@
 import { logger } from './logger';
 import { prisma } from './prisma';
+import { enrichArtistLinks, importSouthAfricanArtists } from './catalogue/musicbrainz';
 import { runIngestion } from './pipeline/run';
 import { drainOutbox } from './jobs/outbox';
 import { awardBadges, confirmAttendance, promptLiveRatings } from './jobs/post-show';
-import { queueOnSaleReminders, queuePriceDropAlerts, queueWeekendDigest } from './jobs/reminders';
+import {
+  queueOnSaleReminders,
+  queuePriceDropAlerts,
+  queueTicketsBackAlerts,
+  queueWeekendDigest,
+} from './jobs/reminders';
 
 /**
  * Run a single job by hand, for development and for operational recovery:
@@ -21,6 +27,10 @@ const TASKS: Record<string, () => Promise<unknown>> = {
   },
   'on-sale': () => queueOnSaleReminders(),
   'price-drop': () => queuePriceDropAlerts(),
+  'tickets-back': () => queueTicketsBackAlerts(),
+  // South African artist catalogue from MusicBrainz; links is the slow second pass.
+  artists: () => importSouthAfricanArtists(),
+  'artist-links': () => enrichArtistLinks(),
   digest: () => queueWeekendDigest(),
 };
 

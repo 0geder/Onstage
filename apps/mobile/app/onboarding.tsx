@@ -1,11 +1,12 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { ArtistSummary } from '@onstage/shared';
 import {
   useArtistSearch,
   useCompleteOnboarding,
+  useOnboardingArtists,
   useOnboardingGenres,
   useRecordConsent,
 } from '../src/api/hooks';
@@ -35,10 +36,23 @@ export default function OnboardingScreen() {
   const [genres, setGenres] = useState<string[]>([]);
   const [selected, setSelected] = useState<ArtistSummary[]>([]);
 
+  const [query, setQuery] = useState('');
+
   const genreOptions = useOnboardingGenres();
-  // Suggestions follow the first genre picked, so the artist step is populated
-  // with something plausible rather than an empty search box.
-  const suggestions = useArtistSearch(genres[0] ?? '');
+  // Artists with upcoming shows, so the step is never empty and every follow
+  // puts a gig in the feed. Typing searches the whole catalogue instead.
+  const suggested = useOnboardingArtists(genres);
+  const search = useArtistSearch(query);
+  const searching = query.trim().length >= 2;
+  const candidates: ArtistSummary[] = searching
+    ? (search.data ?? []).map((result) => result.artist)
+    : (suggested.data ?? []);
+  const loadingCandidates = searching ? search.isLoading : suggested.isLoading;
+  // Picks stay listed even when a search hides them, so they can be undone.
+  const listed = [
+    ...selected.filter((artist) => !candidates.some((item) => item.id === artist.id)),
+    ...candidates,
+  ];
   const complete = useCompleteOnboarding();
   const consent = useRecordConsent();
 
@@ -96,7 +110,7 @@ export default function OnboardingScreen() {
             <Text style={styles.stepTitle}>{t('onboarding.pickGenres')}</Text>
             {genreOptions.isLoading ? (
               <Loading />
-            ) : (
+            ) : genreOptions.data?.length ? (
               <View style={styles.genreGrid}>
                 {genreOptions.data?.map((option) => (
                   <Chip
@@ -107,13 +121,11 @@ export default function OnboardingScreen() {
                   />
                 ))}
               </View>
-            )}
+            ) : null}
 
-            <Button
-              label={t('onboarding.continue')}
-              onPress={() => setStep('artists')}
-              disabled={genres.length === 0}
-            />
+            {/* Genres are optional: most of the catalogue has none yet, and a
+                required step with nothing to pick would stop sign-up dead. */}
+            <Button label={t('onboarding.continue')} onPress={() => setStep('artists')} />
           </>
         ) : null}
 
@@ -124,24 +136,39 @@ export default function OnboardingScreen() {
             </Text>
             <Text style={styles.subtitle}>{t('onboarding.pickArtistsHint')}</Text>
 
-            <ChipRow>
-              {genres.map((genre) => (
-                <Chip key={genre} label={genre} selected onPress={() => undefined} />
-              ))}
-            </ChipRow>
+            {genres.length > 0 ? (
+              <ChipRow>
+                {genres.map((genre) => (
+                  <Chip key={genre} label={genre} selected onPress={() => undefined} />
+                ))}
+              </ChipRow>
+            ) : null}
 
-            {suggestions.isLoading ? (
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder={t('onboarding.searchArtists')}
+              placeholderTextColor={colors.textFaint}
+              style={styles.search}
+              autoCorrect={false}
+              returnKeyType="search"
+              accessibilityLabel={t('onboarding.searchArtists')}
+            />
+
+            {loadingCandidates ? (
               <Loading />
             ) : (
               <View style={styles.artistList}>
-                {suggestions.data?.map(({ artist }) => {
+                {listed.map((artist) => {
                   const picked = selected.some((item) => item.id === artist.id);
                   return (
                     <View key={artist.id} style={styles.artistRow}>
                       <Avatar uri={artist.profileImage} size={44} label={artist.name} />
                       <View style={{ flex: 1 }}>
                         <Text style={styles.artistName}>{artist.name}</Text>
-                        <Text style={styles.artistMeta}>{artist.genres.slice(0, 2).join(' · ')}</Text>
+                        <Text style={styles.artistMeta}>
+                          {artist.genres.slice(0, 2).join(' · ') || (artist.homeCity ?? '')}
+                        </Text>
                       </View>
                       <Button
                         label={picked ? t('artist.following') : t('artist.follow')}
@@ -194,6 +221,16 @@ const styles = StyleSheet.create({
   title: { ...typography.display, color: colors.text },
   subtitle: { ...typography.body, color: colors.textMuted, lineHeight: 22 },
   stepTitle: { ...typography.title, color: colors.text, marginTop: spacing.lg },
+  search: {
+    minHeight: 48,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    color: colors.text,
+    ...typography.body,
+  },
   genreGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   artistList: { gap: spacing.md },
   artistRow: {

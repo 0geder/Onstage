@@ -1,5 +1,6 @@
+import * as Clipboard from 'expo-clipboard';
 import { Image } from 'expo-image';
-import { Link, useLocalSearchParams } from 'expo-router';
+import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useRef, useState, type ComponentRef } from 'react';
 import { Alert, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
@@ -9,8 +10,11 @@ import {
   formatEventDateTime,
   formatMoney,
   formatPriceRange,
+  LIVESTREAM_PLATFORM_LABELS,
+  LIVESTREAM_PLATFORMS,
   publicEventUrl,
   shareUrl,
+  TICKET_PROVIDER_LABELS,
   type CommentTag,
   type DeepLinkPair,
 } from '@onstage/shared';
@@ -21,6 +25,7 @@ import {
   useTicketLink,
   useTravelOptions,
 } from '../../src/api/hooks';
+import { BrandIcon, isBrand } from '../../src/components/brand';
 import { EventThread } from '../../src/components/event-thread';
 import {
   Avatar,
@@ -41,6 +46,9 @@ const WEB_BASE = process.env.EXPO_PUBLIC_WEB_BASE_URL ?? 'https://onstage.co.za'
 // OpenFreeMap: OpenStreetMap vector tiles with no key, account or usage cap.
 const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
+/** How long after the start a show counts as "live now". Most gigs end within this. */
+const LIVE_WINDOW_MS = 5 * 3_600_000;
+
 export default function EventScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const { t } = useTranslation();
@@ -48,12 +56,15 @@ export default function EventScreen() {
   const threadOffset = useRef(0);
 
   const [threadTag, setThreadTag] = useState<CommentTag | undefined>();
+  // Read once when the screen opens; "live now" does not need to tick.
+  const [openedAt] = useState(Date.now);
 
   const event = useEvent(String(slug));
   const eventId = event.data?.id ?? '';
   const travel = useTravelOptions(eventId);
   const plans = useGroupPlans(eventId);
-  const attendance = useSetAttendance(eventId);
+  const attendance = useSetAttendance(eventId, String(slug));
+  const router = useRouter();
   const ticketLink = useTicketLink(eventId);
 
   if (event.isLoading) return <Loading />;
@@ -70,6 +81,9 @@ export default function EventScreen() {
 
   const data = event.data;
   const soldOut = data.status === 'sold_out';
+  const streams = LIVESTREAM_PLATFORMS.filter((platform) => data.livestreamLinks?.[platform]);
+  const startsAt = new Date(data.startsAt).getTime();
+  const isLive = openedAt >= startsAt && openedAt < startsAt + LIVE_WINDOW_MS;
 
   /**
    * Opening a provider. The click is recorded server-side for affiliate
@@ -94,6 +108,17 @@ export default function EventScreen() {
       // canOpenURL throws on some Android configurations; fall through.
     }
     await WebBrowser.openBrowserAsync(pair.web);
+  };
+
+  // inDrive can't take a destination in a link, so hand the rider the address
+  // to paste instead of making them retype it.
+  const openInDrive = async (pair: DeepLinkPair) => {
+    const address = [data.venue.name, data.venue.addressLine].filter(Boolean).join(', ');
+    await Clipboard.setStringAsync(address);
+    Alert.alert('inDrive', t('event.indriveAddressCopied'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('event.openInDrive'), onPress: () => void openDeepLink(pair) },
+    ]);
   };
 
   const scrollToThread = (tag?: CommentTag) => {
@@ -161,23 +186,59 @@ export default function EventScreen() {
           <Button label={t('share.share')} variant="secondary" onPress={onShare} />
         </View>
 
+        {/* Only shows that are actually broadcast get this section, so most
+            event pages are unchanged. The stream plays in the platform's own app. */}
+        {streams.length > 0 ? (
+          <>
+            <SectionHeading title={isLive ? t('event.watchLiveNow') : t('event.watchLive')} />
+            <View style={styles.streams}>
+              <View style={styles.travelRow}>
+                {streams.map((platform) => (
+                  <Button
+                    key={platform}
+                    label={LIVESTREAM_PLATFORM_LABELS[platform]}
+                    icon={<BrandIcon brand={platform} />}
+                    variant={isLive ? 'primary' : 'secondary'}
+                    style={{ flex: 1 }}
+                    onPress={() => void Linking.openURL(data.livestreamLinks[platform] as string)}
+                  />
+                ))}
+              </View>
+              {!isLive ? <Text style={styles.disclaimer}>{t('event.watchLiveHint')}</Text> : null}
+            </View>
+          </>
+        ) : null}
+        {data.viewerManages && data.status !== 'cancelled' ? (
+          <View style={styles.streams}>
+            <Button
+              label={streams.length > 0 ? t('event.editLivestreams') : t('event.addLivestream')}
+              variant="ghost"
+              onPress={() => router.push(`/event/livestreams/${data.slug}`)}
+            />
+          </View>
+        ) : null}
+
         {/* Line-up. Every name is a link — this is the discovery engine, and
             most new-artist exposure comes from someone tapping a support act. */}
         <SectionHeading title={t('event.lineup')} />
         <View style={styles.lineup}>
           {data.lineup.map((entry) => (
             <Link key={entry.artist.id} href={`/artist/${entry.artist.slug}`} asChild>
+              {/* Link's asChild drops a function `style`, so the row is laid out inside. */}
               <Pressable
                 accessibilityRole="link"
                 accessibilityLabel={`${entry.artist.name}, ${t(`role.${entry.role}`)}`}
-                style={({ pressed }) => [styles.lineupRow, pressed && { opacity: 0.7 }]}
               >
-                <Avatar uri={entry.artist.profileImage} size={40} label={entry.artist.name} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.lineupName}>{entry.artist.name}</Text>
-                  <Text style={styles.lineupRole}>{t(`role.${entry.role}`)}</Text>
-                </View>
-                <Text style={styles.chevron}>›</Text>
+                {({ pressed }) => (
+                  <View style={[styles.lineupRow, pressed && { opacity: 0.7 }]}>
+                    <Avatar uri={entry.artist.profileImage} size={40} label={entry.artist.name} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.lineupName}>{entry.artist.name}</Text>
+                      <Text style={styles.lineupRole}>{t(`role.${entry.role}`)}</Text>
+                    </View>
+                    <Text style={styles.chevron}>›</Text>
+                  </View>
+                )}
               </Pressable>
             </Link>
           ))}
@@ -200,12 +261,17 @@ export default function EventScreen() {
               <View key={option.id} style={styles.ticketRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.ticketTier}>{option.tierName}</Text>
-                  <Text style={styles.ticketMeta}>
-                    {option.provider}
-                    {option.priceMinor !== null
-                      ? ` · ${formatMoney(option.priceMinor, option.currency, currentLocale())}`
-                      : ''}
-                  </Text>
+                  <View style={styles.ticketSeller}>
+                    {isBrand(option.provider) ? (
+                      <BrandIcon brand={option.provider} size={16} />
+                    ) : null}
+                    <Text style={styles.ticketMeta}>
+                      {TICKET_PROVIDER_LABELS[option.provider]}
+                      {option.priceMinor !== null
+                        ? ` · ${formatMoney(option.priceMinor, option.currency, currentLocale())}`
+                        : ''}
+                    </Text>
+                  </View>
                 </View>
                 <Button
                   label={t('event.getTickets')}
@@ -225,6 +291,20 @@ export default function EventScreen() {
               label={t('event.findInThread')}
               onPress={() => scrollToThread('have_tickets')}
             />
+          ) : null}
+
+          {/* Saving the show is what subscribes someone to the "tickets are
+              back" alert, so the button is a shortcut to Interested. */}
+          {soldOut && !data.viewerAttendance ? (
+            <Button
+              label={t('event.notifyTicketsBack')}
+              variant="secondary"
+              loading={attendance.isPending}
+              onPress={() => attendance.mutate('interested')}
+            />
+          ) : null}
+          {soldOut && data.viewerAttendance ? (
+            <Text style={styles.disclaimer}>{t('event.ticketsBackWatching')}</Text>
           ) : null}
 
           <Text style={styles.disclaimer}>{t('event.ticketDisclaimer')}</Text>
@@ -252,6 +332,7 @@ export default function EventScreen() {
               <View style={styles.travelRow}>
                 <Button
                   label={t('event.directions')}
+                  icon={<BrandIcon brand="google_maps" />}
                   variant="secondary"
                   style={{ flex: 1 }}
                   onPress={() => void openDeepLink(travel.data.directions.google)}
@@ -264,15 +345,24 @@ export default function EventScreen() {
               <View style={styles.travelRow}>
                 <Button
                   label="Bolt"
+                  icon={<BrandIcon brand="bolt" />}
                   variant="secondary"
                   style={{ flex: 1 }}
                   onPress={() => void openDeepLink(travel.data.rides.bolt)}
                 />
                 <Button
                   label="Uber"
+                  icon={<BrandIcon brand="uber" />}
                   variant="secondary"
                   style={{ flex: 1 }}
                   onPress={() => void openDeepLink(travel.data.rides.uber)}
+                />
+                <Button
+                  label="inDrive"
+                  icon={<BrandIcon brand="indrive" />}
+                  variant="secondary"
+                  style={{ flex: 1 }}
+                  onPress={() => void openInDrive(travel.data.rides.indrive)}
                 />
               </View>
 
@@ -405,6 +495,7 @@ const styles = StyleSheet.create({
   lineupRole: { ...typography.caption, color: colors.textFaint },
   chevron: { color: colors.textFaint, fontSize: 22 },
 
+  streams: { paddingHorizontal: spacing.lg, gap: spacing.sm, marginBottom: spacing.md },
   tickets: { paddingHorizontal: spacing.lg, gap: spacing.md },
   priceRange: { ...typography.title, color: colors.text },
   ticketRow: {
@@ -416,6 +507,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   ticketTier: { ...typography.heading, color: colors.text },
+  ticketSeller: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   ticketMeta: { ...typography.caption, color: colors.textFaint },
   disclaimer: { ...typography.caption, color: colors.textFaint, lineHeight: 17 },
   mutedBody: { ...typography.body, color: colors.textMuted },

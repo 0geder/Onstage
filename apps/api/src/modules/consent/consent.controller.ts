@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Post, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { CONSENT_TYPES, type ConsentType } from '@onstage/shared';
 import { Type } from 'class-transformer';
@@ -48,6 +49,7 @@ export class ConsentController {
     return this.consent.current(user.id);
   }
 
+  @Throttle({ default: { ttl: 60_000, limit: 20 } })
   @Post('consents')
   @ApiOperation({
     summary: 'Record consent decisions',
@@ -67,6 +69,7 @@ export class ConsentController {
     return this.consent.exportData(user.id);
   }
 
+  @Throttle({ default: { ttl: 3_600_000, limit: 5 } })
   @Post('deletion-request')
   @ApiOperation({
     summary: 'Request account deletion',

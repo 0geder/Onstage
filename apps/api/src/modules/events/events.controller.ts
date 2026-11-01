@@ -8,10 +8,12 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthGuard, OptionalAuthGuard } from '../../common/auth/auth.guard';
 import { CurrentUser, type AuthUser } from '../../common/auth/auth-user';
 import { SetAttendanceDto } from './dto/attendance.dto';
+import { SetLivestreamsDto } from './dto/livestreams.dto';
 import { EventsService } from './events.service';
 
 @ApiTags('events')
@@ -27,7 +29,24 @@ export class EventsController {
       'Poster, lineup in billing order, ticket options with a price range, venue and counts. When status is sold_out the client flips its primary call to action to the thread rather than to a provider.',
   })
   findOne(@Param('idOrSlug') idOrSlug: string, @CurrentUser() user?: AuthUser) {
-    return this.events.findOne(idOrSlug, user?.id);
+    return this.events.findOne(idOrSlug, user);
+  }
+
+  @Throttle({ default: { ttl: 60_000, limit: 20 } })
+  @Put(':id/livestreams')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Set where the show is streamed live',
+    description:
+      "For the headliner's verified managers (an approved artist claim) and operators. Onstage links out to the stream; it hosts no video.",
+  })
+  setLivestreams(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: SetLivestreamsDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.events.setLivestreams(user, id, body.links);
   }
 
   @Get(':id/travel')
@@ -51,6 +70,7 @@ export class EventsController {
     return this.events.groupPlans(id, user?.id);
   }
 
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
   @Put(':id/attendance')
   @UseGuards(AuthGuard)
   @ApiBearerAuth()
@@ -63,6 +83,7 @@ export class EventsController {
     return this.events.setAttendance(user.id, id, body.state);
   }
 
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
   @Delete(':id/attendance')
   @UseGuards(AuthGuard)
   @ApiBearerAuth()

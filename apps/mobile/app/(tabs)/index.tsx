@@ -3,15 +3,16 @@ import { FlatList, RefreshControl, ScrollView, StyleSheet, Text, View } from 're
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { EventSummary, GeoPoint } from '@onstage/shared';
-import { useDiscoveryFeed, useOnboardingGenres } from '../../src/api/hooks';
-import { EventCard, EventTile } from '../../src/components/cards';
+import { useDiscoveryFeed, useOnboardingGenres, usePlans } from '../../src/api/hooks';
+import { EventTile } from '../../src/components/cards';
+import { EventPost, PostSkeleton } from '../../src/components/post';
+import { StoryRail, storiesFrom } from '../../src/components/stories';
 import {
   Button,
   Chip,
   ChipRow,
   EmptyState,
   ErrorState,
-  Loading,
   Screen,
   SectionHeading,
 } from '../../src/components/ui';
@@ -28,10 +29,13 @@ const RADIUS_OPTIONS = [10, 25, 50, 100];
 /**
  * Discovery feed.
  *
- * Three sections from the spec. The important behaviour is what happens when a
- * section cannot be built: no location shows a city picker rather than an error,
- * and an empty section says so rather than vanishing, so the screen never looks
- * broken when it is merely empty.
+ * Laid out the way people already read a social feed: a stories row of artists
+ * with shows coming up, a rail for this weekend, then one vertical feed of gigs
+ * as posters — the artists you follow first, then what is near you. The feed
+ * ends when the gigs do; there is no padding it out to keep someone scrolling.
+ *
+ * When a part cannot be built it says so: no location shows a city picker
+ * rather than an error, and an empty feed explains itself.
  */
 export default function DiscoverScreen() {
   const { t } = useTranslation();
@@ -70,6 +74,11 @@ export default function DiscoverScreen() {
     timezone,
   });
   const genreOptions = useOnboardingGenres();
+  const plans = usePlans();
+  const savedIds = useMemo(
+    () => new Set((plans.data ?? []).map((plan) => plan.event.id)),
+    [plans.data],
+  );
 
   const askForLocation = async () => {
     setLocationAsked(true);
@@ -85,7 +94,16 @@ export default function DiscoverScreen() {
       current.includes(genre) ? current.filter((item) => item !== genre) : [...current, genre],
     );
 
-  if (feed.isLoading && !feed.data) return <Loading />;
+  if (feed.isLoading && !feed.data) {
+    return (
+      <Screen>
+        <ScrollView scrollEnabled={false}>
+          <PostSkeleton />
+          <PostSkeleton />
+        </ScrollView>
+      </Screen>
+    );
+  }
   if (feed.isError && !feed.data) {
     return (
       <Screen>
@@ -95,6 +113,10 @@ export default function DiscoverScreen() {
   }
 
   const data = feed.data;
+  const following = data?.fromArtistsYouFollow ?? [];
+  const followingIds = new Set(following.map((event) => event.id));
+  const nearby = (data?.nearYou ?? []).filter((event) => !followingIds.has(event.id));
+  const stories = storiesFrom([...following, ...nearby, ...(data?.thisWeekend ?? [])]);
 
   return (
     <Screen>
@@ -108,6 +130,8 @@ export default function DiscoverScreen() {
           />
         }
       >
+        <StoryRail events={stories} />
+
         {!centre ? (
           <View style={styles.locationPrompt}>
             <Text style={styles.promptTitle}>{t('feed.enableLocation')}</Text>
@@ -165,24 +189,38 @@ export default function DiscoverScreen() {
         ) : null}
 
         <FeedSection
-          title={t('feed.nearYou')}
-          events={data?.nearYou ?? []}
-          emptyLabel={centre ? t('feed.emptyNearYou') : t('feed.locationRationale')}
-          horizontal
-        />
-
-        <FeedSection
-          title={t('feed.following')}
-          events={data?.fromArtistsYouFollow ?? []}
-          emptyLabel={t('feed.emptyFollowing')}
-        />
-
-        <FeedSection
           title={t('feed.thisWeekend')}
           events={data?.thisWeekend ?? []}
           emptyLabel={t('feed.emptyWeekend')}
-          horizontal
         />
+
+        <SectionHeading title={t('feed.forYou')} />
+        {following.length === 0 && nearby.length === 0 ? (
+          <EmptyState
+            title={centre ? t('feed.emptyNearYou') : t('feed.locationRationale')}
+            body={t('feed.emptyFollowing')}
+          />
+        ) : null}
+        {following.map((event) => (
+          <EventPost
+            key={event.id}
+            event={event}
+            saved={savedIds.has(event.id)}
+            reason={t('feed.becauseYouFollow', { venue: event.venue.name })}
+          />
+        ))}
+        {nearby.map((event) => (
+          <EventPost
+            key={event.id}
+            event={event}
+            saved={savedIds.has(event.id)}
+            reason={
+              event.distanceKm !== undefined
+                ? `${event.venue.name} · ${t('feed.distanceAway', { km: event.distanceKm })}`
+                : undefined
+            }
+          />
+        ))}
       </ScrollView>
     </Screen>
   );
@@ -192,12 +230,10 @@ function FeedSection({
   title,
   events,
   emptyLabel,
-  horizontal,
 }: {
   title: string;
   events: EventSummary[];
   emptyLabel: string;
-  horizontal?: boolean;
 }) {
   return (
     <View>
@@ -205,7 +241,7 @@ function FeedSection({
 
       {events.length === 0 ? (
         <EmptyState title={emptyLabel} />
-      ) : horizontal ? (
+      ) : (
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -214,12 +250,6 @@ function FeedSection({
           contentContainerStyle={styles.rail}
           renderItem={({ item }) => <EventTile event={item} />}
         />
-      ) : (
-        <View>
-          {events.map((event) => (
-            <EventCard key={event.id} event={event} />
-          ))}
-        </View>
       )}
     </View>
   );

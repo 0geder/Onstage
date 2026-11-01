@@ -5,12 +5,16 @@ import {
   appEventLink,
   formatEventDateTime,
   formatPriceRange,
+  LIVESTREAM_PLATFORM_LABELS,
+  LIVESTREAM_PLATFORMS,
   publicEventUrl,
   EVENT_STATUS_LABELS,
   LINEUP_ROLE_LABELS,
+  TICKET_PROVIDER_LABELS,
   type EventDetail,
 } from '@onstage/shared';
 import { AppBanner } from '../../../components/app-banner';
+import { BrandIcon } from '../../../components/brand';
 import { getEvent, getTravel, WEB_BASE_URL } from '../../../lib/api';
 import { jsonLd, safeUrl } from '../../../lib/safe';
 
@@ -84,6 +88,8 @@ export default async function EventPage({ params }: Props) {
         label={`Going to ${event.primaryArtist.name}?`}
       />
 
+      <Livestreams event={event} />
+
       <h2>Line-up</h2>
       <ul className="list">
         {event.lineup.map((entry) => (
@@ -114,7 +120,9 @@ export default async function EventPage({ params }: Props) {
                     <div>
                       <strong>{option.tierName}</strong>
                       <div className="faint">
-                        {option.provider} · {option.availability.replace('_', ' ')}
+                        <BrandIcon brand={option.provider} size={16} />{' '}
+                        {TICKET_PROVIDER_LABELS[option.provider]} ·{' '}
+                        {option.availability.replace('_', ' ')}
                       </div>
                     </div>
                     {option.availability === 'sold_out' || !safeUrl(option.purchaseUrl) ? (
@@ -151,14 +159,41 @@ export default async function EventPage({ params }: Props) {
 
       {travel ? (
         <p className="row">
-          <a className="cta cta-secondary" href={travel.directions.google.web} rel="noopener" target="_blank">
+          <a
+            className="cta cta-secondary"
+            href={travel.directions.google.web}
+            rel="noopener"
+            target="_blank"
+          >
+            <BrandIcon brand="google_maps" />
             Directions
           </a>
-          <a className="cta cta-secondary" href={travel.rides.bolt.web} rel="nofollow noopener" target="_blank">
+          <a
+            className="cta cta-secondary"
+            href={travel.rides.bolt.web}
+            rel="nofollow noopener"
+            target="_blank"
+          >
+            <BrandIcon brand="bolt" />
             Bolt
           </a>
-          <a className="cta cta-secondary" href={travel.rides.uber.web} rel="nofollow noopener" target="_blank">
+          <a
+            className="cta cta-secondary"
+            href={travel.rides.uber.web}
+            rel="nofollow noopener"
+            target="_blank"
+          >
+            <BrandIcon brand="uber" />
             Uber
+          </a>
+          <a
+            className="cta cta-secondary"
+            href={travel.rides.indrive.web}
+            rel="nofollow noopener"
+            target="_blank"
+          >
+            <BrandIcon brand="indrive" />
+            inDrive
           </a>
         </p>
       ) : null}
@@ -204,6 +239,34 @@ function poster(event: EventDetail): string | undefined {
 }
 
 /** schema.org MusicEvent. */
+/** Platforms the show is broadcast on, in display order, with a safe URL. */
+function livestreams(event: EventDetail) {
+  return LIVESTREAM_PLATFORMS.flatMap((platform) => {
+    const url = safeUrl(event.livestreamLinks?.[platform]);
+    return url ? [{ platform, url }] : [];
+  });
+}
+
+/** Rendered only when the headliner's team has added a stream. */
+function Livestreams({ event }: { event: EventDetail }) {
+  const streams = livestreams(event);
+  if (streams.length === 0) return null;
+  return (
+    <>
+      <h2>Watch live</h2>
+      <p className="row">
+        {streams.map(({ platform, url }) => (
+          <a key={platform} className="cta cta-secondary" href={url} rel="noopener" target="_blank">
+            <BrandIcon brand={platform} />
+            {LIVESTREAM_PLATFORM_LABELS[platform]}
+          </a>
+        ))}
+      </p>
+      <p className="faint">Streamed by the artist on their own channel.</p>
+    </>
+  );
+}
+
 function eventJsonLd(event: EventDetail) {
   const statusMap: Record<string, string> = {
     cancelled: 'https://schema.org/EventCancelled',
@@ -218,24 +281,30 @@ function eventJsonLd(event: EventDetail) {
     startDate: event.startsAt,
     doorTime: event.doorsOpenAt ?? undefined,
     eventStatus: statusMap[event.status] ?? 'https://schema.org/EventScheduled',
-    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+    eventAttendanceMode:
+      livestreams(event).length > 0
+        ? 'https://schema.org/MixedEventAttendanceMode'
+        : 'https://schema.org/OfflineEventAttendanceMode',
     image: poster(event),
     description: event.description ?? undefined,
-    location: {
-      '@type': 'MusicVenue',
-      name: event.venue.name,
-      address: {
-        '@type': 'PostalAddress',
-        streetAddress: event.venue.addressLine ?? undefined,
-        addressLocality: event.venue.city,
-        addressCountry: event.venue.country,
+    location: [
+      ...livestreams(event).map(({ url }) => ({ '@type': 'VirtualLocation', url })),
+      {
+        '@type': 'MusicVenue',
+        name: event.venue.name,
+        address: {
+          '@type': 'PostalAddress',
+          streetAddress: event.venue.addressLine ?? undefined,
+          addressLocality: event.venue.city,
+          addressCountry: event.venue.country,
+        },
+        geo: {
+          '@type': 'GeoCoordinates',
+          latitude: event.venue.lat,
+          longitude: event.venue.lng,
+        },
       },
-      geo: {
-        '@type': 'GeoCoordinates',
-        latitude: event.venue.lat,
-        longitude: event.venue.lng,
-      },
-    },
+    ],
     performer: event.lineup.map((entry) => ({
       '@type': 'MusicGroup',
       name: entry.artist.name,

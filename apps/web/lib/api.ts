@@ -55,7 +55,7 @@ export function getEvent(slug: string) {
 
 export interface TravelLinks {
   directions: { google: { web: string }; apple: { web: string } };
-  rides: { bolt: { web: string }; uber: { web: string } };
+  rides: { bolt: { web: string }; uber: { web: string }; indrive: { web: string } };
   disclaimer: string;
 }
 

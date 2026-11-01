@@ -1,5 +1,5 @@
 import { Link } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Screen } from '../../src/components/ui';
 import { colors, spacing, typography } from '../../src/theme';
@@ -18,12 +18,13 @@ export default function SettingsScreen() {
       <ScrollView>
         {items.map((item) => (
           <Link key={item.href} href={item.href as never} asChild>
-            <Pressable
-              accessibilityRole="link"
-              style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}
-            >
-              <Text style={styles.label}>{item.label}</Text>
-              <Text style={styles.chevron}>›</Text>
+            <Pressable accessibilityRole="link">
+              {({ pressed }) => (
+                <View style={[styles.row, pressed && { opacity: 0.7 }]}>
+                  <Text style={styles.label}>{item.label}</Text>
+                  <Text style={styles.chevron}>›</Text>
+                </View>
+              )}
             </Pressable>
           </Link>
         ))}

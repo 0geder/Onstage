@@ -19,7 +19,7 @@ export function buildOpenApi(app: INestApplication): OpenAPIObject {
         '- Announced and confirmed appearances only. Onstage never tracks an artist\u2019s live location.',
         '- No audio is hosted or streamed. Streaming links point out to the platforms.',
         '- No ticket payment is processed. Purchases happen on the provider\u2019s own site.',
-        '- No rides are booked. Uber and Bolt are deep links.',
+        '- No rides are booked. Uber, Bolt and inDrive are deep links.',
         '- No user-to-user ticket transaction is processed, escrowed or brokered. The platform hosts the conversation and nothing more.',
       ].join('\n'),
     )

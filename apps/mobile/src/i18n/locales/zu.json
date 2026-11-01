@@ -68,7 +68,39 @@
     "rateThisArtist": "Linganisa lo mculi",
     "noUpcoming": "Ayikho imibukiso ememezelwe okwamanje. Landela ukuze wazi lapho ikhona.",
     "noPast": "Ayikho imibukiso edlule erekhodiwe.",
-    "verified": "Kuqinisekisiwe"
+    "verified": "Kuqinisekisiwe",
+    "editProfile": "Hlela iphrofayela",
+    "claimPrompt": "Ingabe unguye u-{{name}}? Funa le phrofayela",
+    "claimPending": "Isicelo sakho sokuphatha le phrofayela siyabuyekezwa."
+  },
+  "claim": {
+    "title": "Funa u-{{name}}",
+    "intro": "Uma unguye u-{{name}}, noma umphathi wakhe, sitshele ukuthi ungubani. Umuntu wase-Onstage uhlola isicelo ngasinye ngesandla, imvamisa ngokukuthinta nge-akhawunti esemthethweni, ngakho kungathatha izinsuku ezimbalwa.",
+    "evidenceLabel": "Ungubani nokuthi singakuqinisekisa kanjani",
+    "evidencePlaceholder": "isib. Ngiphatha ibhendi. Sithumelele umlayezo ku-Instagram yethu esemthethweni ukuze uqinisekise.",
+    "evidenceHint": "Okungenani izinhlamvu ezingu-{{min}}.",
+    "contactLabel": "Isixhumanisi esisemthethweni (uyazikhethela)",
+    "contactPlaceholder": "Iwebhusayithi, i-Instagram noma enye iphrofayela esemthethweni",
+    "submit": "Thumela isicelo",
+    "signInTitle": "Ngena ukuze ufune le phrofayela",
+    "signInBody": "Uma isicelo sesiqinisekisiwe, iphrofayela inikezwa i-akhawunti ongena ngayo.",
+    "pendingTitle": "Isicelo sakho siyabuyekezwa",
+    "pendingBody": "Sizokwazisa uma umuntu wase-Onstage esesihlolile.",
+    "managesTitle": "Uphethe le phrofayela",
+    "managesBody": "Ungahlela umlando wayo, idolobha lasekhaya nezixhumanisi.",
+    "rejectedNotice": "Asikwazanga ukuqinisekisa isicelo sakho sokugcina. Ungazama futhi ngemininingwane eyengeziwe, njengesixhumanisi esivela ku-akhawunti esemthethweni."
+  },
+  "artistEdit": {
+    "title": "Hlela iphrofayela",
+    "bio": "Umlando",
+    "bioPlaceholder": "Tshela abalandeli ukuthi ungubani nokuthi umbukiso wakho unjani",
+    "homeCity": "Idolobha lasekhaya",
+    "streaming": "Izixhumanisi zokusakaza",
+    "social": "Izixhumanisi zezinkundla zokuxhumana",
+    "linkPlaceholder": "https://…",
+    "save": "Londoloza izinguquko",
+    "notAllowedTitle": "Awukwazi ukuhlela le phrofayela",
+    "notAllowedBody": "Umphathi oqinisekisiwe ka-{{name}} kuphela ongenza izinguquko. Qala ngokufuna iphrofayela."
   },
   "event": {
     "lineup": "Uhlu lwabaculi",
@@ -96,8 +128,17 @@
     "nobodyYouKnow": "Akekho omlandelayo okwamanje",
     "totalGoing_one": "Umuntu ongu-{{count}} uyahamba",
     "totalGoing_other": "Abantu abangu-{{count}} bayahamba",
-    "rideDisclaimer": "I-Onstage ayihlinzeki ngezokuthutha. Lawa malinki avula i-Bolt, i-Uber noma uhlelo lwakho lwamamephu.",
-    "ticketDisclaimer": "Amathikithi athengiswa umhlinzeki, hhayi i-Onstage."
+    "rideDisclaimer": "I-Onstage ayihlinzeki ngezokuthutha. Lawa malinki avula i-Bolt, i-Uber, i-inDrive noma uhlelo lwakho lwamamephu.",
+    "notifyTicketsBack": "Ngazise uma amathikithi ebuya",
+    "ticketsBackWatching": "Sizokwazisa uma amathikithi ephinde athengiswa.",
+    "openInDrive": "Vula i-inDrive",
+    "indriveAddressCopied": "Ikheli lendawo likopishiwe. Lifake njengendawo oya kuyo ku-inDrive.",
+    "ticketDisclaimer": "Amathikithi athengiswa umhlinzeki, hhayi i-Onstage.",
+    "watchLive": "Buka bukhoma",
+    "watchLiveNow": "Bukhoma manje",
+    "watchLiveHint": "Kusakazwa bukhoma ngumculi. Landela umsakazo manje ukuze ube khona uma uqala.",
+    "addLivestream": "Engeza isixhumanisi somsakazo",
+    "editLivestreams": "Hlela izixhumanisi zomsakazo"
   },
   "thread": {
     "title": "Ingxoxo",
@@ -144,7 +185,12 @@
     "locationRationale": "I-Onstage isebenzisa indawo okuyo ukubonisa imibukiso eduze kwakho. Ungakweqa bese ukhetha idolobha.",
     "radius": "Ngaphakathi kwama-km angu-{{km}}",
     "allGenres": "Zonke izinhlobo",
-    "distanceAway": "Ama-km angu-{{km}} ukusuka lapha"
+    "distanceAway": "Ama-km angu-{{km}} ukusuka lapha",
+    "forYou": "Okwakho",
+    "becauseYouFollow": "Uyabalandela · {{venue}}",
+    "socialProof": "{{interested}} banentshisekelo · {{going}} bayaya",
+    "doubleTapHint": "Thepha kabili ukugcina lo mbukiso",
+    "openThread": "Vula umbukiso nengxoxo yawo"
   },
   "onboarding": {
     "welcome": "Thola ukuthi abaculi bakho badlala kuphi",
@@ -159,7 +205,8 @@
     "locationBody": "Sisebenzisa indawo okuyo kuphela ukuthola imibukiso eseduze. Ungathi cha futhi usebenzise konke okunye.",
     "allowLocation": "Vumela indawo okuyo",
     "notNow": "Hhayi manje",
-    "finish": "Qala ukuhlola"
+    "finish": "Qala ukuhlola",
+    "searchArtists": "Sesha umculi"
   },
   "profile": {
     "title": "Iphrofayela",
@@ -180,13 +227,15 @@
     "copied": "Kukopishiwe",
     "signIn": "Ngena",
     "signOut": "Phuma",
-    "signedOutBody": "Ngena ukuze ulandele abaculi, ulondoloze imibukiso futhi ubambe iqhaza engxoxweni."
+    "signedOutBody": "Ngena ukuze ulandele abaculi, ulondoloze imibukiso futhi ubambe iqhaza engxoxweni.",
+    "yourGigs": "Imibukiso yakho"
   },
   "notifications": {
     "newEventAnnounced": "Imibukiso emisha yabaculi engibalandelayo",
     "onSaleReminder": "Izikhumbuzo zokuthengiswa kwamathikithi",
     "onSaleLeadTime": "Ngikhumbuze amahora angu-{{hours}} ngaphambili",
     "priceDrop": "Ukwehla kwamanani",
+    "ticketsBack": "Amathikithi abuyele ekuthengisweni",
     "weekendDigest": "Uhlu lwamasonto onke lwalokho okwenzekayo",
     "postShowRating": "Linganisa umbukiso ekuseni ngakusasa",
     "threadReplies": "Izimpendulo kumazwana ami",
@@ -237,5 +286,17 @@
     "support": "Umsekeli",
     "opener": "Ovulayo",
     "dj_set": "Iseti ye-DJ"
+  },
+  "livestreamEdit": {
+    "title": "Abalandeli bangabuka kuphi bukhoma?",
+    "body": "Namathisela isixhumanisi somsakazo wakho, isiteshi noma ikhasi. Sivela emcimbini njengenkinobho ethi “Buka bukhoma”, nangokuthi “Bukhoma manje” uma umbukiso uqala.",
+    "save": "Gcina izixhumanisi",
+    "notAllowedTitle": "Awukwazi ukuhlela lo mcimbi",
+    "notAllowedBody": "Yithimba eliqinisekisiwe lomculi oyinhloko kuphela elingangeza izixhumanisi zomsakazo."
+  },
+  "stories": {
+    "rail": "Abaculi abanemibukiso ezayo",
+    "open": "Umbukiso ozayo ka-{{name}}",
+    "viewGig": "Buka umbukiso"
   }
 }

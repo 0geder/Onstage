@@ -42,7 +42,7 @@ export default function HomePage() {
           <strong>Tickets and the ride there.</strong>
           <div className="faint">
             Ticket links go to the official provider — Onstage never takes a payment. Directions and
-            ride links open your maps app, Bolt or Uber with the venue already filled in.
+            ride links open your maps app, Bolt, Uber or inDrive with the venue already filled in.
           </div>
         </li>
         <li className="card">

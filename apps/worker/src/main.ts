@@ -1,3 +1,5 @@
+// Must stay the first import: Sentry instruments modules as they load.
+import { Sentry } from './instrument';
 import { Cron } from 'croner';
 import { config } from './config';
 import { withJobLock } from './job-lock';
@@ -7,7 +9,12 @@ import { runIngestion } from './pipeline/run';
 import { executeAccountDeletions } from './jobs/account-deletion';
 import { drainOutbox } from './jobs/outbox';
 import { awardBadges, confirmAttendance, promptLiveRatings } from './jobs/post-show';
-import { queueOnSaleReminders, queuePriceDropAlerts, queueWeekendDigest } from './jobs/reminders';
+import {
+  queueOnSaleReminders,
+  queuePriceDropAlerts,
+  queueTicketsBackAlerts,
+  queueWeekendDigest,
+} from './jobs/reminders';
 
 /**
  * The scheduled worker.
@@ -35,6 +42,7 @@ function schedule(name: string, pattern: string, task: () => Promise<unknown>): 
       // A failing job logs and waits for its next tick; it never takes the
       // process down and never blocks the other jobs.
       logger.error({ job: name, err: (error as Error).message }, 'Job failed');
+      Sentry.captureException(error, { tags: { job: name } });
     } finally {
       running.delete(run);
     }
@@ -64,6 +72,8 @@ async function main(): Promise<void> {
 
   schedule('reminders:on-sale', '*/30 * * * *', () => queueOnSaleReminders());
   schedule('reminders:price-drop', '20 * * * *', () => queuePriceDropAlerts());
+  // Restocks sell out again fast, so this runs far more often than price drops.
+  schedule('reminders:tickets-back', '*/10 * * * *', () => queueTicketsBackAlerts());
   // Thursday morning, while the weekend is still plannable.
   schedule('reminders:weekend-digest', '0 9 * * 4', () => queueWeekendDigest());
 
@@ -82,7 +92,7 @@ async function main(): Promise<void> {
     const timeout = new Promise((resolve) => setTimeout(resolve, config.shutdownTimeoutMs));
     await Promise.race([Promise.allSettled([...running]), timeout]);
 
-    await prisma.$disconnect();
+    await Promise.all([prisma.$disconnect(), Sentry.flush(2000)]);
     process.exit(0);
   };
 

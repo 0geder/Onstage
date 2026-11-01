@@ -4,7 +4,7 @@ import { prisma } from '../prisma';
 import { enqueue, wantsCategory } from './outbox';
 
 /**
- * On-sale reminders, price-drop alerts and the weekend digest.
+ * On-sale reminders, price-drop and tickets-back alerts, and the weekend digest.
  *
  * All three answer the same question — "what would a fan actually want to be
  * interrupted for" — and all three are opt-out per category, with the on-sale
@@ -174,6 +174,75 @@ export async function queuePriceDropAlerts(): Promise<number> {
  * Sent once a week, to people who have a home location and want it. Users with
  * nothing near them get nothing — an empty digest is worse than no digest.
  */
+/** How far back a restock still counts as news. Older ones are not worth a push. */
+const RESTOCK_WINDOW_MS = 6 * 3_600_000;
+
+/**
+ * "Tickets are back": a sold-out tier for a show someone saved went on sale
+ * again, through a provider release or an operator edit in the CMS.
+ */
+export async function queueTicketsBackAlerts(): Promise<number> {
+  const restocked = await prisma.ticketOption.findMany({
+    where: {
+      restockedAt: { gte: new Date(Date.now() - RESTOCK_WINDOW_MS) },
+      availability: { not: 'sold_out' },
+      event: { startsAt: { gt: new Date() }, status: { not: 'cancelled' } },
+    },
+    select: {
+      tierName: true,
+      restockedAt: true,
+      event: {
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          attendances: {
+            where: { state: { in: [...SAVED_STATES] } },
+            select: {
+              userId: true,
+              user: {
+                select: { notificationPrefs: true, bannedAt: true, deletionRequestedAt: true },
+              },
+            },
+          },
+        },
+      },
+    },
+    take: 500,
+  });
+
+  let queued = 0;
+
+  for (const option of restocked) {
+    if (!option.restockedAt) continue;
+    const { event } = option;
+
+    for (const watcher of event.attendances) {
+      if (watcher.user.bannedAt || watcher.user.deletionRequestedAt) continue;
+      const prefs = watcher.user.notificationPrefs as Partial<NotificationPrefs>;
+      if (!wantsCategory(prefs, 'ticketsBack')) continue;
+
+      const sent = await enqueue({
+        userId: watcher.userId,
+        kind: 'tickets_back',
+        // One per user, event and hour of restock: tiers released together
+        // collapse into one push, and a re-run never sends a second.
+        dedupeKey: `tickets_back:${watcher.userId}:${event.id}:${option.restockedAt.toISOString().slice(0, 13)}`,
+        payload: {
+          eventId: event.id,
+          eventSlug: event.slug,
+          title: 'Tickets are back',
+          body: `${option.tierName} tickets for ${event.title} are on sale again.`,
+        },
+      });
+      if (sent) queued += 1;
+    }
+  }
+
+  if (queued > 0) logger.info({ queued }, 'Queued tickets-back alerts');
+  return queued;
+}
+
 export async function queueWeekendDigest(): Promise<number> {
   const users = await prisma.user.findMany({
     where: {

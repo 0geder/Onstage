@@ -1,7 +1,6 @@
-import { Link, useRouter } from 'expo-router';
-import * as Google from 'expo-auth-session/providers/google';
+import { Link, router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
@@ -11,6 +10,7 @@ import {
   signInWithGoogleIdToken,
 } from '../../src/lib/auth';
 import { firebaseConfigured } from '../../src/lib/firebase';
+import { googleSignInConfigured, promptGoogleIdToken } from '../../src/lib/google-sign-in';
 import { routeAfterAuth } from '../../src/lib/post-auth';
 import { Button, Divider, Screen } from '../../src/components/ui';
 import { colors, radii, spacing, typography } from '../../src/theme';
@@ -21,7 +21,6 @@ WebBrowser.maybeCompleteAuthSession();
 
 export default function SignInScreen() {
   const { t } = useTranslation();
-  const router = useRouter();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,29 +29,22 @@ export default function SignInScreen() {
 
   // Browser-based OAuth: works in Expo Go and a dev client alike, unlike
   // native Google Sign-In, which would need its own custom dev client build.
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    // No redirectUri override: Google only accepts the platform's own scheme
-    // for native clients (the package name on Android, the reversed iOS client
-    // ID on iOS), which the provider derives itself. Both schemes are
-    // registered in app.config.js.
-  });
-
-  useEffect(() => {
-    if (response?.type !== 'success') return;
-    const idToken = response.params.id_token;
-    if (!idToken) return;
-
+  // The request lives in promptGoogleIdToken, not in this screen's state, so a
+  // screen rebuilt during the round trip to Google cannot lose it.
+  const submitGoogle = async () => {
+    setError(null);
     setBusy(true);
-    signInWithGoogleIdToken(idToken)
-      .then(() => routeAfterAuth(router))
-      .catch((err) => setError((err as Error).message))
-      .finally(() => setBusy(false));
-    // response is a new object each auth attempt; router is stable from expo-router.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [response]);
+    try {
+      const idToken = await promptGoogleIdToken();
+      if (!idToken) return;
+      await signInWithGoogleIdToken(idToken);
+      await routeAfterAuth(router);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const submitEmail = async () => {
     setError(null);
@@ -136,8 +128,8 @@ export default function SignInScreen() {
         <Button
           label={t('auth.continueWithGoogle')}
           variant="secondary"
-          onPress={() => void promptAsync()}
-          disabled={!request || busy}
+          onPress={() => void submitGoogle()}
+          disabled={!googleSignInConfigured() || busy}
         />
 
         {appleSignInAvailable() ? (
@@ -171,7 +163,12 @@ const styles = StyleSheet.create({
     color: colors.text,
     ...typography.body,
   },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginVertical: spacing.sm },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginVertical: spacing.sm,
+  },
   dividerLabel: { ...typography.caption, color: colors.textFaint },
   error: {
     ...typography.caption,

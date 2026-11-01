@@ -212,6 +212,10 @@ async function mergeTicketOptions(tx: Db, eventId: string, incoming: NormalisedE
         availability: option.availability,
         purchaseUrl: option.purchaseUrl,
         lastCheckedAt: new Date(),
+        // Sold out -> on sale again is what "tickets are back" alerts key on.
+        ...(existing.availability === 'sold_out' && option.availability !== 'sold_out'
+          ? { restockedAt: new Date() }
+          : {}),
       },
     });
 

@@ -1,5 +1,5 @@
 /**
- * Onstage development seed.
+ * Onstage development seed. DEMO DATA ONLY — never run against production.
  *
  * Seeds one city properly rather than being thin everywhere — Cape Town and
  * Johannesburg, with real venues, a mix of international headliners and local
@@ -235,6 +235,7 @@ const VENUES: VenueSeed[] = [
 async function main(): Promise<void> {
   console.log('Seeding Onstage...');
 
+  await assertSafeToWipe();
   await reset();
   const artists = await seedArtists();
   const venues = await seedVenues();
@@ -247,6 +248,29 @@ async function main(): Promise<void> {
     `Done: ${Object.keys(artists).length} artists, ${Object.keys(venues).length} venues, ` +
       `${events.length} events, ${users.length} users.`,
   );
+}
+
+/**
+ * The seed truncates every domain table, so it must never touch a real
+ * database: refused outright in production, and refused anywhere real people
+ * have signed up (a Firebase uid rather than a seeded handle) unless explicitly overridden.
+ */
+async function assertSafeToWipe(): Promise<void> {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Refusing to seed: NODE_ENV is production. The seed deletes all data.');
+  }
+  // Seeded users sign in with their handle as the uid (dev auth); anything else
+  // is a real Firebase account.
+  const [{ count }] = await prisma.$queryRaw<{ count: bigint }[]>`
+    SELECT COUNT(*) AS count FROM users WHERE auth_uid IS NOT NULL AND auth_uid <> handle
+  `;
+  const realUsers = Number(count);
+  if (realUsers > 0 && process.env.SEED_WIPE_REAL_USERS !== 'yes') {
+    throw new Error(
+      `Refusing to seed: ${realUsers} real signed-up user(s) in this database would be deleted. ` +
+        'Set SEED_WIPE_REAL_USERS=yes to wipe anyway (local databases only).',
+    );
+  }
 }
 
 /** Seeds are re-runnable: wipe the domain tables and rebuild from scratch. */

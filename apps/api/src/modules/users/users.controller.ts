@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '../../common/auth/auth.guard';
 import { CurrentUser, type AuthUser } from '../../common/auth/auth-user';
@@ -59,6 +60,22 @@ export class UsersController {
     return this.users.popularGenres();
   }
 
+  @Get('onboarding/artists')
+  @ApiOperation({
+    summary: 'Artists to suggest during onboarding',
+    description:
+      'Artists with upcoming shows, busiest first; any picked genres (comma-separated) rank matching artists higher.',
+  })
+  onboardingArtists(@Query('genres') genres?: string) {
+    const picked = (genres ?? '')
+      .split(',')
+      .map((genre) => genre.trim())
+      .filter(Boolean)
+      .slice(0, 20);
+    return this.users.suggestedArtists(picked);
+  }
+
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
   @Post('connections/:userId')
   @ApiOperation({
     summary: 'Follow another person',
@@ -95,6 +112,7 @@ export class UsersController {
     return this.users.pendingLiveRatings(user);
   }
 
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @Post('push-tokens')
   @ApiOperation({ summary: 'Register a device for push notifications' })
   registerPush(@Body() body: PushTokenDto, @CurrentUser() user: AuthUser) {

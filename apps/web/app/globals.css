@@ -83,6 +83,15 @@ p { margin: 0 0 12px; }
   border-radius: 12px;
   font-weight: 600;
 }
+.cta:has(.brand-icon) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.brand-icon {
+  border-radius: 22%;
+  vertical-align: middle;
+}
 .cta-secondary {
   background: var(--surface-raised);
   color: var(--text);

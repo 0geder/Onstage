@@ -220,3 +220,26 @@ export async function banUser(userId: string, reason: string): Promise<ActionRes
     return toResult(error);
   }
 }
+
+export async function reviewArtistClaim(
+  claimId: string,
+  decision: 'approve' | 'reject',
+): Promise<ActionResult> {
+  try {
+    await requireOperator();
+    if (decision !== 'approve' && decision !== 'reject') throw new Error('Invalid decision.');
+    await adminRequest(`/admin/artist-claims/${id(claimId, 'claim')}/${decision}`, {
+      method: 'POST',
+    });
+    revalidatePath('/claims');
+    return {
+      ok: true,
+      message:
+        decision === 'approve'
+          ? 'Claim approved. The profile is now verified and the claimant can edit it.'
+          : 'Claim rejected. The claimant has been told and can resubmit.',
+    };
+  } catch (error) {
+    return toResult(error);
+  }
+}

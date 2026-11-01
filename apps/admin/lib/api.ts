@@ -133,3 +133,22 @@ export interface QueuedComment {
   event: { id: string; title: string; slug: string };
   openReports: { reason: string; detail: string | null }[];
 }
+
+export interface QueuedArtistClaim {
+  id: string;
+  evidence: string;
+  contactUrl: string | null;
+  createdAt: string;
+  artist: {
+    id: string;
+    name: string;
+    slug: string;
+    verified: boolean;
+    homeCity: string | null;
+    socialLinks: Record<string, string>;
+    streamingLinks: Record<string, string>;
+  };
+  claimant: { id: string; handle: string; displayName: string; email: string; createdAt: string };
+  /** Handles of accounts that already hold an approved claim on this artist. */
+  managedBy: string[];
+}

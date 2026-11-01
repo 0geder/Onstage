@@ -1,5 +1,6 @@
 import type {
   Artist as ArtistRow,
+  ArtistClaim as ArtistClaimRow,
   Comment as CommentRow,
   Event as EventRow,
   EventLineup as EventLineupRow,
@@ -9,11 +10,14 @@ import type {
 } from '@prisma/client';
 import type {
   Artist,
+  ArtistClaim,
+  ArtistClaimStatus,
   ArtistSummary,
   CommentAuthor,
   EventDetail,
   EventSummary,
   LineupEntry,
+  LivestreamLinks,
   PriceRange,
   SocialLinks,
   StreamingLinks,
@@ -66,6 +70,18 @@ export function toArtist(row: ArtistRow): Artist {
     liveRatingCount: row.liveRatingCount,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export function toArtistClaim(row: ArtistClaimRow & { artist: ArtistRow }): ArtistClaim {
+  return {
+    id: row.id,
+    status: row.status as ArtistClaimStatus,
+    evidence: row.evidence,
+    contactUrl: row.contactUrl,
+    createdAt: row.createdAt.toISOString(),
+    reviewedAt: row.reviewedAt?.toISOString() ?? null,
+    artist: toArtistSummary(row.artist),
   };
 }
 
@@ -141,6 +157,8 @@ export function toEventSummary(row: EventWithRelations, distanceKm?: number): Ev
       lat: row.venue.lat,
       lng: row.venue.lng,
     },
+    interestedCount: row.interestedCount,
+    goingCount: row.goingCount,
     ...(distanceKm === undefined ? {} : { distanceKm: Number(distanceKm.toFixed(1)) }),
   };
 }
@@ -174,6 +192,7 @@ export function toEventDetail(
     lineup,
     ticketOptions: row.ticketOptions.map(toTicketOption),
     priceRange: toPriceRange(row.ticketOptions),
+    livestreamLinks: asRecord<LivestreamLinks>(row.livestreamLinks),
     commentCount: row.commentCount,
     attendance: {
       interested: row.interestedCount,
@@ -181,6 +200,7 @@ export function toEventDetail(
       attended: row.attendedCount,
     },
     viewerAttendance,
+    viewerManages: false,
   };
 }
 

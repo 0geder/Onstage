@@ -20,6 +20,9 @@ import { currentLocale } from '../i18n';
  * Both are links rather than buttons, because both are places. That matters for
  * screen readers and it is what makes the lineup discovery path work: every
  * artist name anywhere in the app goes to that artist.
+ *
+ * Layout lives on an inner View, not on the Pressable: Link's asChild drops a
+ * function `style`, which left every card without its padding.
  */
 
 export function EventCard({ event }: { event: EventSummary }) {
@@ -30,41 +33,44 @@ export function EventCard({ event }: { event: EventSummary }) {
       <Pressable
         accessibilityRole="link"
         accessibilityLabel={`${event.title}, ${event.venue.name}`}
-        style={({ pressed }) => [styles.eventCard, pressed && styles.pressed]}
       >
-        {event.posterImage ? (
-          <Image
-            source={{ uri: event.posterImage }}
-            style={styles.poster}
-            contentFit="cover"
-            transition={150}
-            accessibilityIgnoresInvertColors
-          />
-        ) : (
-          <View style={[styles.poster, styles.posterFallback]} />
-        )}
+        {({ pressed }) => (
+          <View style={[styles.eventCard, pressed && styles.pressed]}>
+            {event.posterImage ? (
+              <Image
+                source={{ uri: event.posterImage }}
+                style={styles.poster}
+                contentFit="cover"
+                transition={150}
+                accessibilityIgnoresInvertColors
+              />
+            ) : (
+              <View style={[styles.poster, styles.posterFallback]} />
+            )}
 
-        <View style={styles.eventBody}>
-          <View style={styles.badgeRow}>
-            <StatusBadge status={event.status} />
-            {event.isPromoted ? <PromotedBadge /> : null}
+            <View style={styles.eventBody}>
+              <View style={styles.badgeRow}>
+                <StatusBadge status={event.status} />
+                {event.isPromoted ? <PromotedBadge /> : null}
+              </View>
+
+              <Text style={styles.eventTitle} numberOfLines={2}>
+                {event.title}
+              </Text>
+
+              <Text style={styles.eventMeta} numberOfLines={1}>
+                {formatEventDateTime(event.startsAt, event.localTimezone, currentLocale())}
+              </Text>
+
+              <Text style={styles.eventMetaFaint} numberOfLines={1}>
+                {event.venue.name}
+                {event.distanceKm !== undefined
+                  ? ` · ${t('feed.distanceAway', { km: event.distanceKm })}`
+                  : ` · ${event.venue.city}`}
+              </Text>
+            </View>
           </View>
-
-          <Text style={styles.eventTitle} numberOfLines={2}>
-            {event.title}
-          </Text>
-
-          <Text style={styles.eventMeta} numberOfLines={1}>
-            {formatEventDateTime(event.startsAt, event.localTimezone, currentLocale())}
-          </Text>
-
-          <Text style={styles.eventMetaFaint} numberOfLines={1}>
-            {event.venue.name}
-            {event.distanceKm !== undefined
-              ? ` · ${t('feed.distanceAway', { km: event.distanceKm })}`
-              : ` · ${event.venue.city}`}
-          </Text>
-        </View>
+        )}
       </Pressable>
     </Link>
   );
@@ -79,38 +85,41 @@ export function EventTile({ event }: { event: EventSummary }) {
       <Pressable
         accessibilityRole="link"
         accessibilityLabel={`${event.title}, ${event.venue.name}`}
-        style={({ pressed }) => [styles.tile, pressed && styles.pressed]}
       >
-        {event.posterImage ? (
-          <Image
-            source={{ uri: event.posterImage }}
-            style={styles.tilePoster}
-            contentFit="cover"
-            transition={150}
-            accessibilityIgnoresInvertColors
-          />
-        ) : (
-          <View style={[styles.tilePoster, styles.posterFallback]} />
-        )}
+        {({ pressed }) => (
+          <View style={[styles.tile, pressed && styles.pressed]}>
+            {event.posterImage ? (
+              <Image
+                source={{ uri: event.posterImage }}
+                style={styles.tilePoster}
+                contentFit="cover"
+                transition={150}
+                accessibilityIgnoresInvertColors
+              />
+            ) : (
+              <View style={[styles.tilePoster, styles.posterFallback]} />
+            )}
 
-        <View style={styles.tileBody}>
-          <View style={styles.badgeRow}>
-            <StatusBadge status={event.status} />
-            {event.isPromoted ? <PromotedBadge /> : null}
+            <View style={styles.tileBody}>
+              <View style={styles.badgeRow}>
+                <StatusBadge status={event.status} />
+                {event.isPromoted ? <PromotedBadge /> : null}
+              </View>
+              <Text style={styles.tileTitle} numberOfLines={2}>
+                {event.title}
+              </Text>
+              <Text style={styles.eventMeta} numberOfLines={1}>
+                {formatEventDateTime(event.startsAt, event.localTimezone, currentLocale())}
+              </Text>
+              <Text style={styles.eventMetaFaint} numberOfLines={1}>
+                {event.venue.name}
+                {event.distanceKm !== undefined
+                  ? ` · ${t('feed.distanceAway', { km: event.distanceKm })}`
+                  : ''}
+              </Text>
+            </View>
           </View>
-          <Text style={styles.tileTitle} numberOfLines={2}>
-            {event.title}
-          </Text>
-          <Text style={styles.eventMeta} numberOfLines={1}>
-            {formatEventDateTime(event.startsAt, event.localTimezone, currentLocale())}
-          </Text>
-          <Text style={styles.eventMetaFaint} numberOfLines={1}>
-            {event.venue.name}
-            {event.distanceKm !== undefined
-              ? ` · ${t('feed.distanceAway', { km: event.distanceKm })}`
-              : ''}
-          </Text>
-        </View>
+        )}
       </Pressable>
     </Link>
   );
@@ -121,42 +130,42 @@ export function ArtistRow({ artist, subtitle }: { artist: ArtistSummary; subtitl
 
   return (
     <Link href={`/artist/${artist.slug}`} asChild>
-      <Pressable
-        accessibilityRole="link"
-        accessibilityLabel={artist.name}
-        style={({ pressed }) => [styles.artistRow, pressed && styles.pressed]}
-      >
-        <Avatar uri={artist.profileImage} size={52} label={artist.name} />
+      <Pressable accessibilityRole="link" accessibilityLabel={artist.name}>
+        {({ pressed }) => (
+          <View style={[styles.artistRow, pressed && styles.pressed]}>
+            <Avatar uri={artist.profileImage} size={52} label={artist.name} />
 
-        <View style={styles.artistRowBody}>
-          <View style={styles.nameRow}>
-            <Text style={styles.artistName} numberOfLines={1}>
-              {artist.name}
-            </Text>
-            {artist.verified ? (
-              <Text
-                style={styles.verified}
-                accessibilityLabel={t('artist.verified')}
-                accessibilityRole="image"
-              >
-                ✓
+            <View style={styles.artistRowBody}>
+              <View style={styles.nameRow}>
+                <Text style={styles.artistName} numberOfLines={1}>
+                  {artist.name}
+                </Text>
+                {artist.verified ? (
+                  <Text
+                    style={styles.verified}
+                    accessibilityLabel={t('artist.verified')}
+                    accessibilityRole="image"
+                  >
+                    ✓
+                  </Text>
+                ) : null}
+                {artist.isPromoted ? <PromotedBadge /> : null}
+              </View>
+
+              <Text style={styles.artistMeta} numberOfLines={1}>
+                {artist.genres.slice(0, 2).join(' · ') || (artist.homeCity ?? '')}
               </Text>
-            ) : null}
-            {artist.isPromoted ? <PromotedBadge /> : null}
+
+              <Text style={styles.artistMetaFaint} numberOfLines={1}>
+                {subtitle ??
+                  `${t('artist.followers', { count: artist.followerCount })} · ${formatRating(
+                    artist.ratingAvg,
+                    artist.ratingCount,
+                  )}`}
+              </Text>
+            </View>
           </View>
-
-          <Text style={styles.artistMeta} numberOfLines={1}>
-            {artist.genres.slice(0, 2).join(' · ') || (artist.homeCity ?? '')}
-          </Text>
-
-          <Text style={styles.artistMetaFaint} numberOfLines={1}>
-            {subtitle ??
-              `${t('artist.followers', { count: artist.followerCount })} · ${formatRating(
-                artist.ratingAvg,
-                artist.ratingCount,
-              )}`}
-          </Text>
-        </View>
+        )}
       </Pressable>
     </Link>
   );
@@ -188,18 +197,18 @@ export function SearchResultRow({ result }: { result: ArtistSearchResult }) {
 export function ArtistTile({ artist }: { artist: ArtistSummary }) {
   return (
     <Link href={`/artist/${artist.slug}`} asChild>
-      <Pressable
-        accessibilityRole="link"
-        accessibilityLabel={artist.name}
-        style={({ pressed }) => [styles.artistTile, pressed && styles.pressed]}
-      >
-        <Avatar uri={artist.profileImage} size={72} label={artist.name} />
-        <Text style={styles.artistTileName} numberOfLines={2}>
-          {artist.name}
-        </Text>
-        <Text style={styles.artistTileMeta} numberOfLines={1}>
-          {formatFollowerCount(artist.followerCount)}
-        </Text>
+      <Pressable accessibilityRole="link" accessibilityLabel={artist.name}>
+        {({ pressed }) => (
+          <View style={[styles.artistTile, pressed && styles.pressed]}>
+            <Avatar uri={artist.profileImage} size={72} label={artist.name} />
+            <Text style={styles.artistTileName} numberOfLines={2}>
+              {artist.name}
+            </Text>
+            <Text style={styles.artistTileMeta} numberOfLines={1}>
+              {formatFollowerCount(artist.followerCount)}
+            </Text>
+          </View>
+        )}
       </Pressable>
     </Link>
   );

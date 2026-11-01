@@ -16,6 +16,7 @@
   "dependencies": {
     "@onstage/shared": "*",
     "@prisma/client": "^5.22.0",
+    "@sentry/node": "^11.10.0",
     "croner": "^8.1.2",
     "dotenv": "^16.4.5",
     "firebase-admin": "^12.7.0",

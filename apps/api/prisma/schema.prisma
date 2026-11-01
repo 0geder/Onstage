@@ -257,6 +257,9 @@ model Event {
   ageRestriction  String?     @map("age_restriction") @db.VarChar(40)
   description     String?
   posterImage     String?     @map("poster_image")
+  /// { youtube, facebook, instagram, tiktok, twitch }. Set by operators and the
+  /// headliner's verified managers; ingestion never touches it.
+  livestreamLinks Json        @default("{}") @map("livestream_links")
 
   source       EventSourceName
   /// The provider's own id. Ingestion upserts are keyed on (source, sourceId).
@@ -329,6 +332,9 @@ model TicketOption {
   availability  TicketAvailability @default(available)
   purchaseUrl   String             @map("purchase_url")
   lastCheckedAt DateTime?          @map("last_checked_at") @db.Timestamptz(6)
+  /// Last time this tier went from sold out back to on sale; drives the
+  /// "tickets are back" alert.
+  restockedAt   DateTime?          @map("restocked_at") @db.Timestamptz(6)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -385,7 +391,8 @@ model User {
   reportsFiled   CommentReport[]      @relation("Reporter")
   reportsHandled CommentReport[]      @relation("Moderator")
   pushTokens     PushToken[]
-  claims         ArtistClaim[]
+  claims         ArtistClaim[]        @relation("Claimant")
+  claimsReviewed ArtistClaim[]        @relation("ClaimReviewer")
   outbox         NotificationOutbox[]
   consents       UserConsent[]
   badges         UserBadge[]
@@ -566,18 +573,26 @@ model NotificationOutbox {
 
 /// Claim-your-profile flow. A verified claim unlocks artist self-submission.
 model ArtistClaim {
-  id         String    @id @default(uuid()) @db.Uuid
-  artistId   String    @map("artist_id") @db.Uuid
-  userId     String    @map("user_id") @db.Uuid
-  evidence   String
-  status     String    @default("pending") @db.VarChar(16)
-  reviewedAt DateTime? @map("reviewed_at") @db.Timestamptz(6)
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  id           String    @id @default(uuid()) @db.Uuid
+  artistId     String    @map("artist_id") @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  /// Who the claimant is and how an operator can check it.
+  evidence     String
+  /// An official website or social profile the claimant offers as proof.
+  contactUrl   String?   @map("contact_url")
+  /// pending | approved | rejected
+  status       String    @default("pending") @db.VarChar(16)
+  reviewedAt   DateTime? @map("reviewed_at") @db.Timestamptz(6)
+  /// The operator who decided the claim; null when it was the CMS token alone.
+  reviewedById String?   @map("reviewed_by") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  artist Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artist   Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  user     User   @relation("Claimant", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer User?  @relation("ClaimReviewer", fields: [reviewedById], references: [id])
 
   @@unique([artistId, userId])
+  @@index([status, createdAt])
   @@map("artist_claims")
 }
 

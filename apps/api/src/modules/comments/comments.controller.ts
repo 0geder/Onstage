@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthGuard, OptionalAuthGuard } from '../../common/auth/auth.guard';
 import { CurrentUser, type AuthUser } from '../../common/auth/auth-user';
@@ -78,6 +79,7 @@ export class CommentsController {
     return this.comments.replies(id, query.limit, query.cursor, user);
   }
 
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
   @Post('comments/:id/like')
   @UseGuards(AuthGuard)
   @ApiBearerAuth()
@@ -102,6 +104,7 @@ export class CommentsController {
     return this.comments.softDelete(id, user);
   }
 
+  @Throttle({ default: { ttl: 3_600_000, limit: 20 } })
   @Post('comments/:id/report')
   @UseGuards(AuthGuard)
   @ApiBearerAuth()

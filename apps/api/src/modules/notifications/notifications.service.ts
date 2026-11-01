@@ -69,6 +69,7 @@ const CATEGORY_PREF = {
   new_event_announced: 'newEventAnnounced',
   on_sale_reminder: 'onSaleReminder',
   price_drop: 'priceDrop',
+  tickets_back: 'ticketsBack',
   weekend_digest: 'weekendDigest',
   post_show_rating: 'postShowRating',
   thread_replies: 'threadReplies',

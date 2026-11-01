@@ -222,6 +222,7 @@ export class AdminService {
     if (input.onSaleAt !== undefined) {
       data.onSaleAt = input.onSaleAt ? new Date(input.onSaleAt) : null;
     }
+    if (input.livestreamLinks !== undefined) data.livestreamLinks = input.livestreamLinks;
     if (input.venueId !== undefined) data.venue = { connect: { id: input.venueId } };
     if (input.primaryArtistId !== undefined) {
       data.primaryArtist = { connect: { id: input.primaryArtistId } };
@@ -272,6 +273,19 @@ export class AdminService {
   async setTicketOptions(eventId: string, input: SetTicketOptionsDto) {
     await this.mustExist('event', eventId);
 
+    // Options are replaced wholesale, so carry restock history across: a tier
+    // an operator switches from sold out to on sale must still raise the alert.
+    const previous = await this.prisma.ticketOption.findMany({
+      where: { eventId },
+      select: { provider: true, tierName: true, availability: true, restockedAt: true },
+    });
+    const restockedAt = (provider: string, tierName: string, availability: string) => {
+      const before = previous.find((p) => p.provider === provider && p.tierName === tierName);
+      if (!before) return null;
+      if (before.availability === 'sold_out' && availability !== 'sold_out') return new Date();
+      return before.restockedAt;
+    };
+
     await this.prisma.$transaction([
       this.prisma.ticketOption.deleteMany({ where: { eventId } }),
       this.prisma.ticketOption.createMany({
@@ -284,6 +298,11 @@ export class AdminService {
           availability: option.availability ?? 'available',
           purchaseUrl: option.purchaseUrl,
           lastCheckedAt: new Date(),
+          restockedAt: restockedAt(
+            option.provider,
+            option.tierName,
+            option.availability ?? 'available',
+          ),
         })),
       }),
     ]);
@@ -322,7 +341,10 @@ export class AdminService {
     const comments = await this.prisma.comment.findMany({
       where: {
         deletedAt: null,
-        OR: [{ moderationState: { in: ['flagged', 'hidden'] } }, { reports: { some: { status: 'open' } } }],
+        OR: [
+          { moderationState: { in: ['flagged', 'hidden'] } },
+          { reports: { some: { status: 'open' } } },
+        ],
       },
       include: {
         user: { select: { id: true, handle: true, displayName: true, createdAt: true } },
@@ -516,9 +538,7 @@ export class AdminService {
     return rows.map((row) => ({
       ...row,
       // Surfaced so the queue is triaged by deadline, not by feel.
-      dueAt: new Date(
-        (row.deletionRequestedAt as Date).getTime() + 30 * 86_400_000,
-      ).toISOString(),
+      dueAt: new Date((row.deletionRequestedAt as Date).getTime() + 30 * 86_400_000).toISOString(),
     }));
   }
 

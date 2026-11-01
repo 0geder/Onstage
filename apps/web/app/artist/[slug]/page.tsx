@@ -10,12 +10,8 @@ import {
   type EventSummary,
 } from '@onstage/shared';
 import { AppBanner } from '../../../components/app-banner';
-import {
-  getArtist,
-  getArtistEvents,
-  getSimilarArtists,
-  WEB_BASE_URL,
-} from '../../../lib/api';
+import { BrandIcon, STREAMING_LABELS } from '../../../components/brand';
+import { getArtist, getArtistEvents, getSimilarArtists, WEB_BASE_URL } from '../../../lib/api';
 import { jsonLd, safeUrl } from '../../../lib/safe';
 
 export const revalidate = 900;
@@ -109,7 +105,8 @@ export default async function ArtistPage({ params }: Props) {
                 rel="noopener"
                 target="_blank"
               >
-                {platform.replace('_', ' ')}
+                <BrandIcon brand={platform} />
+                {STREAMING_LABELS[platform] ?? platform.replace('_', ' ')}
               </a>
             ))}
           </p>
@@ -160,7 +157,9 @@ function EventList({ events, empty }: { events: EventSummary[]; empty: string })
           <Link href={`/event/${event.slug}`}>
             <div className="card">
               <strong>{formatEventDateTime(event.startsAt, event.localTimezone)}</strong>
-              <div>{event.venue.name}, {event.venue.city}</div>
+              <div>
+                {event.venue.name}, {event.venue.city}
+              </div>
               <div className="faint">{event.title}</div>
             </div>
           </Link>

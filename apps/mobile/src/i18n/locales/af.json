@@ -68,7 +68,39 @@
     "rateThisArtist": "Beoordeel hierdie kunstenaar",
     "noUpcoming": "Geen aangekondigde vertonings op die oomblik nie. Volg om te hoor wanneer daar is.",
     "noPast": "Geen vorige vertonings aangeteken nie.",
-    "verified": "Geverifieer"
+    "verified": "Geverifieer",
+    "editProfile": "Wysig profiel",
+    "claimPrompt": "Is jy {{name}}? Eis hierdie profiel op",
+    "claimPending": "Jou eis om hierdie profiel te bestuur word nagegaan."
+  },
+  "claim": {
+    "title": "Eis {{name}} op",
+    "intro": "As jy {{name}} is, of hulle bestuur, sê vir ons wie jy is. Iemand by Onstage gaan elke eis met die hand na, gewoonlik deur via ’n amptelike rekening kontak te maak, so dit kan ’n paar dae neem.",
+    "evidenceLabel": "Wie jy is en hoe ons dit kan nagaan",
+    "evidencePlaceholder": "bv. Ek bestuur die groep. Stuur vir ons ’n boodskap op ons amptelike Instagram om te bevestig.",
+    "evidenceHint": "Minstens {{min}} karakters.",
+    "contactLabel": "Amptelike skakel (opsioneel)",
+    "contactPlaceholder": "Webwerf, Instagram of ’n ander amptelike profiel",
+    "submit": "Stuur eis",
+    "signInTitle": "Meld aan om hierdie profiel op te eis",
+    "signInBody": "Sodra die eis geverifieer is, word die profiel oorgedra aan die rekening waarmee jy aanmeld.",
+    "pendingTitle": "Jou eis word nagegaan",
+    "pendingBody": "Ons laat weet jou sodra iemand by Onstage dit nagegaan het.",
+    "managesTitle": "Jy bestuur hierdie profiel",
+    "managesBody": "Jy kan die biografie, tuisstad en skakels wysig.",
+    "rejectedNotice": "Ons kon nie jou vorige eis verifieer nie. Jy kan weer probeer met meer besonderhede, soos ’n skakel van ’n amptelike rekening."
+  },
+  "artistEdit": {
+    "title": "Wysig profiel",
+    "bio": "Biografie",
+    "bioPlaceholder": "Vertel aanhangers wie jy is en hoe ’n vertoning van jou is",
+    "homeCity": "Tuisstad",
+    "streaming": "Stroomskakels",
+    "social": "Sosialemedia-skakels",
+    "linkPlaceholder": "https://…",
+    "save": "Stoor veranderinge",
+    "notAllowedTitle": "Jy kan nie hierdie profiel wysig nie",
+    "notAllowedBody": "Slegs ’n geverifieerde bestuurder van {{name}} kan veranderinge maak. Eis eers die profiel op."
   },
   "event": {
     "lineup": "Program",
@@ -96,8 +128,17 @@
     "nobodyYouKnow": "Nog niemand wat jy volg nie",
     "totalGoing_one": "{{count}} persoon gaan",
     "totalGoing_other": "{{count}} mense gaan",
-    "rideDisclaimer": "Onstage verskaf nie vervoer nie. Hierdie skakels maak Bolt, Uber of jou kaarte-app oop.",
-    "ticketDisclaimer": "Kaartjies word deur die verskaffer verkoop, nie deur Onstage nie."
+    "rideDisclaimer": "Onstage verskaf nie vervoer nie. Hierdie skakels maak Bolt, Uber, inDrive of jou kaarte-app oop.",
+    "notifyTicketsBack": "Laat weet my as kaartjies terugkom",
+    "ticketsBackWatching": "Ons laat weet jou as kaartjies weer te koop is.",
+    "openInDrive": "Maak inDrive oop",
+    "indriveAddressCopied": "Lokaal se adres is gekopieer. Plak dit as jou bestemming in inDrive.",
+    "ticketDisclaimer": "Kaartjies word deur die verskaffer verkoop, nie deur Onstage nie.",
+    "watchLive": "Kyk regstreeks",
+    "watchLiveNow": "Nou regstreeks",
+    "watchLiveHint": "Regstreeks uitgesaai deur die kunstenaar. Volg die stroom nou sodat jy daar is wanneer dit begin.",
+    "addLivestream": "Voeg 'n regstreekse skakel by",
+    "editLivestreams": "Wysig regstreekse skakels"
   },
   "thread": {
     "title": "Gesprek",
@@ -144,7 +185,12 @@
     "locationRationale": "Onstage gebruik jou ligging om vertonings naby jou te wys. Jy kan dit oorslaan en eerder ’n stad kies.",
     "radius": "Binne {{km}} km",
     "allGenres": "Alle genres",
-    "distanceAway": "{{km}} km weg"
+    "distanceAway": "{{km}} km weg",
+    "forYou": "Vir jou",
+    "becauseYouFollow": "Jy volg hulle · {{venue}}",
+    "socialProof": "{{interested}} belangstellend · {{going}} gaan",
+    "doubleTapHint": "Dubbeltik om hierdie vertoning te stoor",
+    "openThread": "Maak die vertoning en sy gesprek oop"
   },
   "onboarding": {
     "welcome": "Vind uit waar jou kunstenaars speel",
@@ -159,7 +205,8 @@
     "locationBody": "Ons gebruik jou ligging net om vertonings naby te vind. Jy kan nee sê en steeds alles anders gebruik.",
     "allowLocation": "Laat ligging toe",
     "notNow": "Nie nou nie",
-    "finish": "Begin verken"
+    "finish": "Begin verken",
+    "searchArtists": "Soek 'n kunstenaar"
   },
   "profile": {
     "title": "Profiel",
@@ -180,13 +227,15 @@
     "copied": "Gekopieer",
     "signIn": "Meld aan",
     "signOut": "Meld af",
-    "signedOutBody": "Meld aan om kunstenaars te volg, vertonings te stoor en deel te neem aan die gesprek."
+    "signedOutBody": "Meld aan om kunstenaars te volg, vertonings te stoor en deel te neem aan die gesprek.",
+    "yourGigs": "Jou vertonings"
   },
   "notifications": {
     "newEventAnnounced": "Nuwe vertonings van kunstenaars wat ek volg",
     "onSaleReminder": "Kaartjieverkoop-herinneringe",
     "onSaleLeadTime": "Herinner my {{hours}} uur vooraf",
     "priceDrop": "Prysverlagings",
+    "ticketsBack": "Kaartjies weer te koop",
     "weekendDigest": "Weeklikse oorsig van wat aangaan",
     "postShowRating": "Beoordeel ’n vertoning die volgende oggend",
     "threadReplies": "Antwoorde op my opmerkings",
@@ -237,5 +286,17 @@
     "support": "Ondersteuning",
     "opener": "Opener",
     "dj_set": "DJ-stel"
+  },
+  "livestreamEdit": {
+    "title": "Waar kan aanhangers regstreeks kyk?",
+    "body": "Plak die skakel na jou regstreekse uitsending, kanaal of blad. Dit verskyn op die geleentheid as 'n “Kyk regstreeks”-knoppie, en as “Nou regstreeks” sodra die vertoning begin.",
+    "save": "Stoor skakels",
+    "notAllowedTitle": "Jy kan nie hierdie geleentheid wysig nie",
+    "notAllowedBody": "Slegs die hoofkunstenaar se geverifieerde span kan regstreekse skakels byvoeg."
+  },
+  "stories": {
+    "rail": "Kunstenaars met vertonings op pad",
+    "open": "{{name}} se komende vertoning",
+    "viewGig": "Kyk na vertoning"
   }
 }

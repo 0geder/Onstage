@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 import { IsString, Length } from 'class-validator';
 import { AuthGuard } from '../../common/auth/auth.guard';
@@ -28,6 +29,7 @@ export class ReferralsController {
     return this.referrals.codeFor(user.id);
   }
 
+  @Throttle({ default: { ttl: 3_600_000, limit: 5 } })
   @Post('referrals/redeem')
   @ApiOperation({
     summary: 'Redeem an invite code',

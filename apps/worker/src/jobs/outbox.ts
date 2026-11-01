@@ -190,6 +190,7 @@ const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 function deepLinkPath(kind: string, payload: Record<string, unknown>): string {
   if (kind === 'post_show_rating') return '/plans';
   if (typeof payload.eventSlug === 'string') return `/event/${payload.eventSlug}`;
+  if (typeof payload.artistSlug === 'string') return `/artist/${payload.artistSlug}`;
   return '/';
 }
 

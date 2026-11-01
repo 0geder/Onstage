@@ -1,16 +1,25 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma, type AttendanceState } from '@prisma/client';
 import {
   appleMapsDirections,
   boltLink,
+  indriveLink,
   googleMapsDirections,
   uberLink,
   type EventDetail,
+  type LivestreamLinks,
 } from '@onstage/shared';
+import type { AuthUser } from '../../common/auth/auth-user';
 import { CacheKeys, CacheTtl } from '../../common/redis/cache-keys';
 import { CacheService } from '../../common/redis/cache.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { toEventDetail, type EventDetailRow } from '../../common/mappers';
+import { ArtistClaimsService } from '../artists/artist-claims.service';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -26,9 +35,10 @@ export class EventsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cache: CacheService,
+    private readonly claims: ArtistClaimsService,
   ) {}
 
-  async findOne(idOrSlug: string, viewerId?: string): Promise<EventDetail> {
+  async findOne(idOrSlug: string, viewer?: AuthUser): Promise<EventDetail> {
     // The event body is shared by every viewer and cached; only the viewer's own
     // attendance is per-user, so it is fetched separately and merged in.
     const cacheKey = CacheKeys.event(idOrSlug);
@@ -45,13 +55,36 @@ export class EventsService {
       await this.cache.set(cacheKey, base, CacheTtl.event);
     }
 
-    if (!viewerId) return { ...base, viewerAttendance: null };
+    if (!viewer) return { ...base, viewerAttendance: null, viewerManages: false };
 
-    const attendance = await this.prisma.attendance.findUnique({
-      where: { userId_eventId: { userId: viewerId, eventId: base.id } },
-      select: { state: true },
+    const [attendance, viewerManages] = await Promise.all([
+      this.prisma.attendance.findUnique({
+        where: { userId_eventId: { userId: viewer.id, eventId: base.id } },
+        select: { state: true },
+      }),
+      this.claims.canManage(viewer, base.primaryArtist.id),
+    ]);
+    return { ...base, viewerAttendance: attendance?.state ?? null, viewerManages };
+  }
+
+  /** "Watch live" links. Only the headliner's verified managers and operators. */
+  async setLivestreams(user: AuthUser, eventId: string, links: LivestreamLinks) {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+      select: { slug: true, primaryArtistId: true },
     });
-    return { ...base, viewerAttendance: attendance?.state ?? null };
+    if (!event) throw new NotFoundException('Event not found.');
+    if (!(await this.claims.canManage(user, event.primaryArtistId))) {
+      throw new ForbiddenException("Only the headliner's verified team can set livestream links.");
+    }
+
+    const updated = await this.prisma.event.update({
+      where: { id: eventId },
+      data: { livestreamLinks: links },
+      select: { livestreamLinks: true },
+    });
+    await this.cache.invalidate(CacheKeys.event(eventId), CacheKeys.event(event.slug));
+    return updated.livestreamLinks as LivestreamLinks;
   }
 
   /**
@@ -63,9 +96,7 @@ export class EventsService {
    */
   async setAttendance(userId: string, eventId: string, state: AttendanceState) {
     if (state === 'attended') {
-      throw new BadRequestException(
-        'Attendance is confirmed after the show, not set directly.',
-      );
+      throw new BadRequestException('Attendance is confirmed after the show, not set directly.');
     }
 
     const event = await this.prisma.event.findUnique({
@@ -160,9 +191,10 @@ export class EventsService {
         // decorative one.
         bolt: boltLink(destination),
         uber: uberLink(destination, process.env.UBER_CLIENT_ID),
+        indrive: indriveLink(),
       },
       disclaimer:
-        'Onstage does not provide transport. These links open Bolt, Uber or your maps app.',
+        'Onstage does not provide transport. These links open Bolt, Uber, inDrive or your maps app.',
     };
   }
 

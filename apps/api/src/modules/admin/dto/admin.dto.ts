@@ -3,6 +3,7 @@ import {
   EVENT_SOURCES,
   EVENT_STATUSES,
   LINEUP_ROLES,
+  LIVESTREAM_PLATFORMS,
   SOCIAL_PLATFORMS,
   STREAMING_PLATFORMS,
   TICKET_AVAILABILITIES,
@@ -12,6 +13,7 @@ import type {
   EventSourceName,
   EventStatus,
   LineupRole,
+  LivestreamLinks,
   SocialLinks,
   StreamingLinks,
   TicketAvailability,
@@ -390,6 +392,12 @@ export class UpdateEventDto {
   @IsOptional()
   @IsISO8601()
   onSaleAt?: string;
+
+  @ApiPropertyOptional({ description: 'Replaces the whole map; {} removes every link.' })
+  @IsOptional()
+  @IsObject()
+  @IsLinkMap(LIVESTREAM_PLATFORMS)
+  livestreamLinks?: LivestreamLinks;
 }
 
 export class SetLineupDto {

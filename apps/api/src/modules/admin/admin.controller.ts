@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AdminTokenGuard } from '../../common/auth/admin-token.guard';
+import { ArtistClaimsService } from '../artists/artist-claims.service';
 import { TicketsService } from '../tickets/tickets.service';
 import { AdminService } from './admin.service';
 import {
@@ -56,6 +57,7 @@ export class AdminController {
   constructor(
     private readonly admin: AdminService,
     private readonly tickets: TicketsService,
+    private readonly claims: ArtistClaimsService,
   ) {}
 
   // ── Artists ──
@@ -205,6 +207,45 @@ export class AdminController {
   ) {
     const moderatorId = await this.admin.resolveModerator(adminUserId);
     return this.admin.unbanUser(id, moderatorId);
+  }
+
+  // ── Artist profile claims ──
+
+  @Get('artist-claims')
+  @ApiOperation({
+    summary: 'Pending artist profile claims',
+    description:
+      'Oldest first, with the evidence, the claimant and anyone who already manages the profile. Verification is manual.',
+  })
+  artistClaims(@Query() query: AdminLimitQueryDto) {
+    return this.claims.pendingQueue(query.limit);
+  }
+
+  @Post('artist-claims/:id/approve')
+  @ApiOperation({
+    summary: 'Approve a claim',
+    description:
+      'Marks the profile verified and lets the claimant edit it. Other pending claims on the same artist are left for their own decision.',
+  })
+  async approveClaim(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Headers(ADMIN_USER_HEADER) adminUserId?: string,
+  ) {
+    const moderatorId = await this.admin.resolveModerator(adminUserId);
+    return this.claims.review(id, 'approve', moderatorId);
+  }
+
+  @Post('artist-claims/:id/reject')
+  @ApiOperation({
+    summary: 'Reject a claim',
+    description: 'The claimant is told and can resubmit with better evidence.',
+  })
+  async rejectClaim(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Headers(ADMIN_USER_HEADER) adminUserId?: string,
+  ) {
+    const moderatorId = await this.admin.resolveModerator(adminUserId);
+    return this.claims.review(id, 'reject', moderatorId);
   }
 
   // ── Operational visibility ──

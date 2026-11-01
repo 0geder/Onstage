@@ -10,6 +10,7 @@ import i18n, { initI18n } from '../src/i18n';
 import { firebaseConfigured } from '../src/lib/firebase';
 import { subscribeToAuthChanges } from '../src/lib/auth';
 import { syncPushToken, useNotificationRouting } from '../src/lib/push';
+import { Sentry } from '../src/lib/sentry';
 import { colors } from '../src/theme';
 import { Button, EmptyState, Loading, Screen } from '../src/components/ui';
 
@@ -23,7 +24,11 @@ function NotificationRoutes() {
  * Last line of defence: any render error below the root lands here instead of
  * a white screen. Rendered outside the providers, so it uses i18n directly.
  */
-export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
+
   return (
     <Screen>
       <EmptyState
@@ -47,7 +52,7 @@ const queryClient = new QueryClient({
   },
 });
 
-export default function RootLayout() {
+function RootLayout() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -64,10 +69,14 @@ export default function RootLayout() {
     if (!firebaseConfigured) return undefined;
     let lastUid: string | null = null;
     const unsubscribe = subscribeToAuthChanges((user) => {
-      void queryClient.invalidateQueries({ queryKey: ['me'] });
-      // Token refreshes also fire this; only a new sign-in needs re-registering.
-      if (user && user.uid !== lastUid) void syncPushToken();
-      lastUid = user?.uid ?? null;
+      // Token refreshes also fire this. A different person (sign-in, sign-out)
+      // changes every personal section — feed, plans, follows — so refresh all
+      // of it; a refresh of the same person's token only touches their profile.
+      const uid = user?.uid ?? null;
+      if (uid !== lastUid) void queryClient.invalidateQueries();
+      else void queryClient.invalidateQueries({ queryKey: ['me'] });
+      if (user && uid !== lastUid) void syncPushToken();
+      lastUid = uid;
     });
     return unsubscribe;
   }, []);
@@ -99,7 +108,14 @@ export default function RootLayout() {
             >
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen name="artist/[slug]" options={{ title: '', headerTransparent: true }} />
+              <Stack.Screen name="artist/claim/[slug]" options={{ title: '' }} />
+              <Stack.Screen name="artist/edit/[slug]" options={{ title: '' }} />
               <Stack.Screen name="event/[slug]" options={{ title: '', headerTransparent: true }} />
+              <Stack.Screen name="event/livestreams/[slug]" options={{ title: '' }} />
+              <Stack.Screen
+                name="stories"
+                options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade' }}
+              />
               <Stack.Screen
                 name="onboarding"
                 options={{ headerShown: false, gestureEnabled: false }}
@@ -118,3 +134,6 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+
+// Reports crashes that escape every boundary, and records which screens led there.
+export default Sentry.wrap(RootLayout);

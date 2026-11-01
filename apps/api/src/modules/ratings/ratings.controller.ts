@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Put, Query, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '../../common/auth/auth.guard';
 import { CurrentUser, type AuthUser } from '../../common/auth/auth-user';
@@ -11,6 +12,7 @@ import { RatingsService } from './ratings.service';
 export class RatingsController {
   constructor(private readonly ratings: RatingsService) {}
 
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
   @Put('artists/:id/rating')
   @UseGuards(AuthGuard)
   @ApiBearerAuth()
@@ -27,6 +29,7 @@ export class RatingsController {
     return this.ratings.rateArtist(user, id, body);
   }
 
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
   @Put('events/:id/rating')
   @UseGuards(AuthGuard)
   @ApiBearerAuth()

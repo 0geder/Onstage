@@ -1,8 +1,17 @@
 import { Image } from 'expo-image';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { FlatList, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import {
+  FlatList,
+  Linking,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
   formatRating,
@@ -17,6 +26,7 @@ import {
   useFollowArtist,
   useSimilarArtists,
 } from '../../src/api/hooks';
+import { BrandIcon } from '../../src/components/brand';
 import { ArtistTile, EventCard } from '../../src/components/cards';
 import {
   Avatar,
@@ -55,6 +65,7 @@ const STREAMING_LABELS: Record<StreamingPlatform, string> = {
 export default function ArtistScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const { t } = useTranslation();
+  const router = useRouter();
 
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
   const [rating, setRating] = useState(false);
@@ -63,7 +74,7 @@ export default function ArtistScreen() {
   const artistId = artist.data?.id ?? '';
   const events = useArtistEvents(artistId, tab);
   const similar = useSimilarArtists(artistId);
-  const follow = useFollowArtist(artistId);
+  const follow = useFollowArtist(artistId, String(slug));
 
   if (artist.isLoading) return <Loading />;
   if (artist.isError || !artist.data) {
@@ -131,10 +142,7 @@ export default function ArtistScreen() {
             they answer different questions and merging them destroys the one
             number nobody else has. */}
         <View style={styles.stats}>
-          <Stat
-            label={t('artist.following')}
-            value={data.followerCount.toLocaleString('en-ZA')}
-          />
+          <Stat label={t('artist.following')} value={data.followerCount.toLocaleString('en-ZA')} />
           <Stat
             label={t('artist.overallRating')}
             value={formatRating(data.ratingAvg, data.ratingCount)}
@@ -161,6 +169,16 @@ export default function ArtistScreen() {
           />
         </View>
 
+        {data.viewerManages ? (
+          <View style={styles.manageBlock}>
+            <Button
+              label={t('artist.editProfile')}
+              variant="secondary"
+              onPress={() => router.push(`/artist/edit/${data.slug}`)}
+            />
+          </View>
+        ) : null}
+
         {data.bio ? <Text style={styles.bio}>{data.bio}</Text> : null}
 
         {/* Onstage hosts no audio. Every one of these is a hand-off. */}
@@ -180,6 +198,7 @@ export default function ArtistScreen() {
                   onPress={() => void openStreaming(platform, streaming[platform] as string)}
                   style={({ pressed }) => [styles.streamingButton, pressed && { opacity: 0.7 }]}
                 >
+                  <BrandIcon brand={platform} size={22} />
                   <Text style={styles.streamingLabel}>{STREAMING_LABELS[platform]}</Text>
                 </Pressable>
               ))}
@@ -227,6 +246,22 @@ export default function ArtistScreen() {
             />
           </View>
         ) : null}
+
+        {/* Imported profiles start unverified. The way in for the real artist
+            stays quiet at the bottom: fans are the audience for this screen. */}
+        {data.viewerManages ? null : data.viewerClaimStatus === 'pending' ? (
+          <Text style={styles.claimNote}>{t('artist.claimPending')}</Text>
+        ) : !data.verified ? (
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => router.push(`/artist/claim/${data.slug}`)}
+            style={({ pressed }) => [styles.claimLink, pressed && { opacity: 0.7 }]}
+          >
+            <Text style={styles.claimLinkLabel}>
+              {t('artist.claimPrompt', { name: data.name })}
+            </Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
 
       <RatingSheet
@@ -269,6 +304,7 @@ const styles = StyleSheet.create({
   statLabel: { ...typography.caption, color: colors.textFaint },
 
   actions: { flexDirection: 'row', gap: spacing.md, padding: spacing.lg },
+  manageBlock: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
   bio: {
     ...typography.body,
     color: colors.textMuted,
@@ -278,6 +314,9 @@ const styles = StyleSheet.create({
 
   streamingRow: { paddingHorizontal: spacing.lg, gap: spacing.sm },
   streamingButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     backgroundColor: colors.surfaceRaised,
@@ -287,7 +326,24 @@ const styles = StyleSheet.create({
   },
   streamingLabel: { ...typography.label, color: colors.text },
 
-  tabs: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.xl },
+  tabs: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+  },
   rateBlock: { padding: spacing.lg },
   similarRow: { paddingHorizontal: spacing.lg, gap: spacing.lg },
+  claimLink: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl },
+  claimLinkLabel: {
+    ...typography.caption,
+    color: colors.textMuted,
+    textDecorationLine: 'underline',
+  },
+  claimNote: {
+    ...typography.caption,
+    color: colors.textFaint,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+  },
 });

@@ -36,6 +36,7 @@ export function Button({
   disabled,
   loading,
   style,
+  icon,
 }: {
   label: string;
   onPress: () => void;
@@ -43,6 +44,8 @@ export function Button({
   disabled?: boolean;
   loading?: boolean;
   style?: StyleProp<ViewStyle>;
+  /** Shown before the label, e.g. a BrandIcon. */
+  icon?: ReactNode;
 }) {
   const isDisabled = disabled || loading;
   return (
@@ -65,15 +68,18 @@ export function Button({
       {loading ? (
         <ActivityIndicator color={variant === 'primary' ? colors.onAccent : colors.text} />
       ) : (
-        <Text
-          style={[
-            styles.buttonLabel,
-            variant === 'primary' && { color: colors.onAccent },
-            variant === 'ghost' && { color: colors.textMuted },
-          ]}
-        >
-          {label}
-        </Text>
+        <View style={styles.buttonContent}>
+          {icon}
+          <Text
+            style={[
+              styles.buttonLabel,
+              variant === 'primary' && { color: colors.onAccent },
+              variant === 'ghost' && { color: colors.textMuted },
+            ]}
+          >
+            {label}
+          </Text>
+        </View>
       )}
     </Pressable>
   );
@@ -250,10 +256,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   buttonPrimary: { backgroundColor: colors.accent },
-  buttonSecondary: { backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border },
+  buttonSecondary: {
+    backgroundColor: colors.surfaceRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   buttonGhost: { backgroundColor: 'transparent' },
   buttonPressed: { opacity: 0.8 },
   buttonDisabled: { opacity: 0.45 },
+  buttonContent: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   buttonLabel: { ...typography.label, color: colors.text },
 
   badge: {

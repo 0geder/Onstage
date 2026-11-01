@@ -47,6 +47,13 @@ export class NotificationPrefsDto {
   @IsBoolean()
   priceDrop?: boolean;
 
+  @ApiPropertyOptional({
+    description: 'A sold-out ticket tier for a show you saved is back on sale.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  ticketsBack?: boolean;
+
   @ApiPropertyOptional({ description: 'Weekly digest of shows near you this weekend.' })
   @IsOptional()
   @IsBoolean()
