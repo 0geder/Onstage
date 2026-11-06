@@ -16,6 +16,7 @@ import { ConsentModule } from './modules/consent/consent.module';
 import { EventsModule } from './modules/events/events.module';
 import { FeedModule } from './modules/feed/feed.module';
 import { HealthModule } from './modules/health/health.module';
+import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { RatingsModule } from './modules/ratings/ratings.module';
 import { ReferralsModule } from './modules/referrals/referrals.module';
@@ -43,6 +44,7 @@ import { UsersModule } from './modules/users/users.module';
     AuthModule,
     NotificationsModule,
     HealthModule,
+    IntegrationsModule,
     ArtistsModule,
     EventsModule,
     TicketsModule,

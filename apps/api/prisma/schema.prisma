@@ -35,6 +35,7 @@ enum EventSourceName {
   ticketmaster
   quicket
   webtickets
+  howler
   manual
   artist_submitted
 
@@ -736,4 +737,23 @@ model UserFollow {
   @@id([followerId, followeeId])
   @@index([followeeId])
   @@map("user_follows")
+}
+
+/// The latest Event Webhook payload Howler has sent for each event.
+///
+/// Howler pushes rather than being polled: organisers point their event
+/// webhook at the API, which keeps the newest copy here, and the worker's
+/// Howler adapter turns these rows into events on its normal schedule.
+model HowlerEvent {
+  howlerEventId Int       @id @map("howler_event_id")
+  organiserId   Int       @map("organiser_id")
+  /// The webhook body exactly as received.
+  payload       Json
+  startsAt      DateTime? @map("starts_at") @db.Timestamptz(6)
+  /// Howler's own last-modified time, so late deliveries never overwrite newer ones.
+  modifiedAt    DateTime  @map("modified_at") @db.Timestamptz(6)
+  receivedAt    DateTime  @default(now()) @map("received_at") @db.Timestamptz(6)
+
+  @@index([startsAt])
+  @@map("howler_events")
 }

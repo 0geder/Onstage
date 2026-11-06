@@ -43,6 +43,8 @@ export interface WorkerConfig {
     songkick: ProviderConfig;
     ticketmaster: ProviderConfig;
     quicket: ProviderConfig;
+    /** Pushed, not fetched: on with the API's webhook token; reads howler_events. */
+    howler: { enabled: boolean };
   };
 }
 
@@ -98,5 +100,6 @@ export const config: WorkerConfig = {
       baseUrl: process.env.QUICKET_BASE_URL ?? 'https://api.quicket.co.za/api',
       apiKey: process.env.QUICKET_API_KEY,
     },
+    howler: { enabled: Boolean(process.env.HOWLER_WEBHOOK_TOKEN) },
   },
 };

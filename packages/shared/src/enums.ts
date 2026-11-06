@@ -16,6 +16,7 @@ export const EVENT_SOURCES = [
   'ticketmaster',
   'quicket',
   'webtickets',
+  'howler',
   'manual',
   'artist_submitted',
 ] as const;

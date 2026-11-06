@@ -117,6 +117,7 @@ const SOURCE_PRECEDENCE: Record<string, number> = {
   artist_submitted: 90,
   quicket: 60,
   webtickets: 60,
+  howler: 60,
   ticketmaster: 55,
   songkick: 30,
   bandsintown: 25,

@@ -34,6 +34,11 @@ export interface AppConfig {
   affiliate: AffiliateConfig | null;
   /** Bumped whenever the privacy policy changes, and stored with each consent. */
   privacyPolicyVersion: string;
+  /**
+   * Howler's Event Webhook. Unset token disables the endpoint. An empty
+   * organiser list accepts any organiser who has the token.
+   */
+  howler: { webhookToken: string; organiserIds: number[] };
 }
 
 /**
@@ -106,4 +111,11 @@ export default (): AppConfig => ({
   webBaseUrl: process.env.WEB_BASE_URL ?? 'http://localhost:3002',
   affiliate: parseAffiliate(),
   privacyPolicyVersion: process.env.PRIVACY_POLICY_VERSION ?? '2026-01-01',
+  howler: {
+    webhookToken: process.env.HOWLER_WEBHOOK_TOKEN ?? '',
+    organiserIds: (process.env.HOWLER_ORGANISER_IDS ?? '')
+      .split(',')
+      .map((id) => Number(id.trim()))
+      .filter((id) => Number.isInteger(id) && id > 0),
+  },
 });

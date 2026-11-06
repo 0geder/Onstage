@@ -57,6 +57,7 @@ One npm workspaces monorepo, TypeScript throughout, Node.js 22.
 - **Node.js 22** with **Croner**: cron jobs in South African time. A Postgres advisory lock stops two copies running the same job at once.
 - **Gig sources:**
   - **Quicket** API
+  - **Howler** Event Webhook, pushed to the API by organisers who opt in (Howler has no public listings API)
   - **Ticketmaster** Discovery API
   - **Bandsintown**
   - **MusicBrainz**, for artist data
@@ -106,6 +107,7 @@ One npm workspaces monorepo, TypeScript throughout, Node.js 22.
 | Google Cloud OAuth | Google sign-in | `EXPO_PUBLIC_GOOGLE_*_CLIENT_ID` |
 | Expo / EAS | Builds, push notifications | `EAS_PROJECT_ID`, `EXPO_OWNER` |
 | Quicket API | South African gig listings | `QUICKET_API_KEY` |
+| Howler Event Webhook | Gigs from Howler organisers who opt in, including tickets remaining | `HOWLER_WEBHOOK_TOKEN` |
 | Ticketmaster Discovery API | Gig listings | `TICKETMASTER_API_KEY` |
 | Bandsintown | Gig listings | `BANDSINTOWN_APP_ID` |
 | MusicBrainz | Artist catalogue data | no key needed |

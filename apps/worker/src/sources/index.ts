@@ -1,4 +1,5 @@
 import { BandsintownAdapter } from './bandsintown';
+import { HowlerAdapter } from './howler';
 import { QuicketAdapter } from './quicket';
 import { TicketmasterAdapter } from './ticketmaster';
 import type { EventSourceAdapter } from './types';
@@ -14,6 +15,7 @@ export const adapters: EventSourceAdapter[] = [
   new TicketmasterAdapter(),
   new BandsintownAdapter(),
   new QuicketAdapter(),
+  new HowlerAdapter(),
 ];
 
 export * from './types';
