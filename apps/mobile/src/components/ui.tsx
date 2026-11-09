@@ -235,7 +235,15 @@ export function Divider() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  centred: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+  // Its own background: screens return <Loading /> bare, and without one the
+  // navigator's white default flashes through while they load.
+  centred: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.background,
+  },
   mutedText: { ...typography.body, color: colors.textMuted },
 
   sectionHeading: {
