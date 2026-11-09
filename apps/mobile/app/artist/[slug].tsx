@@ -41,6 +41,7 @@ import {
   SectionHeading,
 } from '../../src/components/ui';
 import { RatingSheet } from '../../src/components/rating-sheet';
+import { useWorkingImage } from '../../src/lib/working-image';
 import { colors, radii, spacing, typography } from '../../src/theme';
 
 const WEB_BASE = process.env.EXPO_PUBLIC_WEB_BASE_URL ?? 'https://onstage.co.za';
@@ -75,6 +76,12 @@ export default function ArtistScreen() {
   const events = useArtistEvents(artistId, tab);
   const similar = useSimilarArtists(artistId);
   const follow = useFollowArtist(artistId, String(slug));
+  // Few artists have a banner of their own; their next poster, blurred, stands in.
+  const banner = useWorkingImage(
+    artist.data?.bannerImage,
+    events.data?.items.find((event) => event.posterImage)?.posterImage,
+  );
+  const bannerIsPoster = banner.uri !== null && banner.uri !== artist.data?.bannerImage;
 
   if (artist.isLoading) return <Loading />;
   if (artist.isError || !artist.data) {
@@ -113,8 +120,17 @@ export default function ArtistScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xxl }}>
-        {data.bannerImage ? (
-          <Image source={{ uri: data.bannerImage }} style={styles.banner} contentFit="cover" />
+        {banner.uri ? (
+          <View style={styles.banner}>
+            <Image
+              source={{ uri: banner.uri }}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              blurRadius={bannerIsPoster ? 24 : 0}
+              onError={banner.onError}
+            />
+            {bannerIsPoster ? <View style={[StyleSheet.absoluteFill, styles.bannerDim]} /> : null}
+          </View>
         ) : (
           <View style={[styles.banner, { backgroundColor: colors.surfaceRaised }]} />
         )}
@@ -284,7 +300,8 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  banner: { width: '100%', height: 190 },
+  banner: { width: '100%', height: 190, overflow: 'hidden' },
+  bannerDim: { backgroundColor: 'rgba(11, 11, 15, 0.35)' },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-end',
