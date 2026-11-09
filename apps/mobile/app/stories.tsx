@@ -11,6 +11,7 @@ import { Icon } from '../src/components/icon';
 import { markSeen, storyQueue } from '../src/components/stories';
 import { Avatar, Button } from '../src/components/ui';
 import { currentLocale } from '../src/i18n';
+import { useWorkingImage } from '../src/lib/working-image';
 import { colors, radii, spacing, typography } from '../src/theme';
 
 /** How long each poster stays up before the next one. */
@@ -28,6 +29,10 @@ export default function StoriesScreen() {
   const [{ events, start }] = useState(storyQueue);
   const [index, setIndex] = useState(start);
   const progress = useState(() => new Animated.Value(0))[0];
+  const image = useWorkingImage(
+    events[index]?.posterImage,
+    events[index]?.primaryArtist.profileImage,
+  );
 
   const event = events[index];
   const plans = usePlans();
@@ -71,26 +76,25 @@ export default function StoriesScreen() {
 
   if (!event) return <Redirect href="/" />;
 
-  const image = event.posterImage ?? event.primaryArtist.profileImage;
-
   return (
     <View style={styles.screen}>
-      {image ? (
+      {image.uri ? (
         <>
           {/* Blurred fill behind, the whole poster in front: posters are every
               shape, and cropping one cuts off the date or the line-up. */}
           <Image
-            source={{ uri: image }}
+            source={{ uri: image.uri }}
             style={StyleSheet.absoluteFill}
             contentFit="cover"
             blurRadius={40}
           />
           <View style={[StyleSheet.absoluteFill, styles.dim]} />
           <Image
-            source={{ uri: image }}
+            source={{ uri: image.uri }}
             style={StyleSheet.absoluteFill}
             contentFit="contain"
             transition={150}
+            onError={image.onError}
           />
         </>
       ) : null}

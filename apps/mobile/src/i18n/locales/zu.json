@@ -190,7 +190,11 @@
     "becauseYouFollow": "Uyabalandela · {{venue}}",
     "socialProof": "{{interested}} banentshisekelo · {{going}} bayaya",
     "doubleTapHint": "Thepha kabili ukugcina lo mbukiso",
-    "openThread": "Vula umbukiso nengxoxo yawo"
+    "openThread": "Vula umbukiso nengxoxo yawo",
+    "showingNear": "Imibukiso eduze ne-{{place}}",
+    "yourLocation": "lapho ukhona",
+    "change": "Shintsha",
+    "changeCity": "Shintsha idolobha obona imibukiso yalo"
   },
   "onboarding": {
     "welcome": "Thola ukuthi abaculi bakho badlala kuphi",

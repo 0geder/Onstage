@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { EventSummary } from '@onstage/shared';
+import { useWorkingImage } from '../lib/working-image';
 import { colors, spacing, typography } from '../theme';
 
 /**
@@ -61,7 +62,6 @@ export function StoryRail({ events }: { events: EventSummary[] }) {
     >
       {events.map((event, index) => {
         const isNew = !seen.has(event.id);
-        const image = event.primaryArtist.profileImage ?? event.posterImage;
         return (
           <Pressable
             key={event.id}
@@ -76,15 +76,7 @@ export function StoryRail({ events }: { events: EventSummary[] }) {
             {({ pressed }) => (
               <View style={[styles.item, pressed && { opacity: 0.7 }]}>
                 <View style={[styles.ring, { borderColor: isNew ? colors.accent : colors.border }]}>
-                  {image ? (
-                    <Image source={{ uri: image }} style={styles.avatar} contentFit="cover" />
-                  ) : (
-                    <View style={[styles.avatar, styles.fallback]}>
-                      <Text style={styles.initial}>
-                        {event.primaryArtist.name.slice(0, 1).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
+                  <StoryFace event={event} />
                 </View>
                 <Text style={styles.name} numberOfLines={1}>
                   {event.primaryArtist.name}
@@ -95,6 +87,26 @@ export function StoryRail({ events }: { events: EventSummary[] }) {
         );
       })}
     </ScrollView>
+  );
+}
+
+/** The artist's photo, else the poster, else their initial. */
+function StoryFace({ event }: { event: EventSummary }) {
+  const image = useWorkingImage(event.primaryArtist.profileImage, event.posterImage);
+  if (!image.uri) {
+    return (
+      <View style={[styles.avatar, styles.fallback]}>
+        <Text style={styles.initial}>{event.primaryArtist.name.slice(0, 1).toUpperCase()}</Text>
+      </View>
+    );
+  }
+  return (
+    <Image
+      source={{ uri: image.uri }}
+      style={styles.avatar}
+      contentFit="cover"
+      onError={image.onError}
+    />
   );
 }
 

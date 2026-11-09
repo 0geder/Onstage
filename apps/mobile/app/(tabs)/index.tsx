@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FlatList, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  FlatList,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { EventSummary, GeoPoint } from '@onstage/shared';
@@ -46,6 +54,8 @@ export default function DiscoverScreen() {
   const [radiusKm, setRadiusKm] = useState(50);
   const [genres, setGenres] = useState<string[]>([]);
   const [locationAsked, setLocationAsked] = useState(false);
+  // Someone abroad, or planning a trip, wants another city's gigs.
+  const [pickingCity, setPickingCity] = useState(false);
 
   const timezone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'Africa/Johannesburg',
@@ -157,6 +167,40 @@ export default function DiscoverScreen() {
 
         {centre ? (
           <>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('feed.changeCity')}
+              onPress={() => setPickingCity((open) => !open)}
+            >
+              <Text style={styles.nearLine}>
+                {t('feed.showingNear', { place: cityName ?? t('feed.yourLocation') })}
+                <Text style={styles.change}> · {t('feed.change')}</Text>
+              </Text>
+            </Pressable>
+            {pickingCity ? (
+              <ChipRow>
+                <Chip
+                  label={t('feed.yourLocation')}
+                  selected={cityName === null}
+                  onPress={() => {
+                    setPickingCity(false);
+                    void askForLocation();
+                  }}
+                />
+                {CITY_CENTRES.map((city) => (
+                  <Chip
+                    key={city.name}
+                    label={city.name}
+                    selected={cityName === city.name}
+                    onPress={() => {
+                      setCentre(city.point);
+                      setCityName(city.name);
+                      setPickingCity(false);
+                    }}
+                  />
+                ))}
+              </ChipRow>
+            ) : null}
             <ChipRow>
               {RADIUS_OPTIONS.map((km) => (
                 <Chip
@@ -266,5 +310,12 @@ const styles = StyleSheet.create({
   promptTitle: { ...typography.heading, color: colors.text },
   promptBody: { ...typography.body, color: colors.textMuted, lineHeight: 21 },
   orPickCity: { ...typography.label, color: colors.textFaint, marginTop: spacing.sm },
+  nearLine: {
+    ...typography.caption,
+    color: colors.textMuted,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xs,
+  },
+  change: { ...typography.caption, color: colors.accent },
   rail: { paddingHorizontal: spacing.lg, gap: spacing.md },
 });

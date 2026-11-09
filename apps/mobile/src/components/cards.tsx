@@ -13,6 +13,7 @@ import {
 import { colors, radii, spacing, typography } from '../theme';
 import { Avatar, PromotedBadge, StatusBadge } from './ui';
 import { currentLocale } from '../i18n';
+import { useWorkingImage } from '../lib/working-image';
 
 /**
  * Event and artist cards.
@@ -27,6 +28,7 @@ import { currentLocale } from '../i18n';
 
 export function EventCard({ event }: { event: EventSummary }) {
   const { t } = useTranslation();
+  const poster = useWorkingImage(event.posterImage);
 
   return (
     <Link href={`/event/${event.slug}`} asChild>
@@ -36,12 +38,13 @@ export function EventCard({ event }: { event: EventSummary }) {
       >
         {({ pressed }) => (
           <View style={[styles.eventCard, pressed && styles.pressed]}>
-            {event.posterImage ? (
+            {poster.uri ? (
               <Image
-                source={{ uri: event.posterImage }}
+                source={{ uri: poster.uri }}
                 style={styles.poster}
                 contentFit="cover"
                 transition={150}
+                onError={poster.onError}
                 accessibilityIgnoresInvertColors
               />
             ) : (
@@ -79,6 +82,7 @@ export function EventCard({ event }: { event: EventSummary }) {
 /** Wider variant for the horizontal feed rails. */
 export function EventTile({ event }: { event: EventSummary }) {
   const { t } = useTranslation();
+  const poster = useWorkingImage(event.posterImage);
 
   return (
     <Link href={`/event/${event.slug}`} asChild>
@@ -88,12 +92,13 @@ export function EventTile({ event }: { event: EventSummary }) {
       >
         {({ pressed }) => (
           <View style={[styles.tile, pressed && styles.pressed]}>
-            {event.posterImage ? (
+            {poster.uri ? (
               <Image
-                source={{ uri: event.posterImage }}
+                source={{ uri: poster.uri }}
                 style={styles.tilePoster}
                 contentFit="cover"
                 transition={150}
+                onError={poster.onError}
                 accessibilityIgnoresInvertColors
               />
             ) : (

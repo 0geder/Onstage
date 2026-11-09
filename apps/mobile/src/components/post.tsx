@@ -7,6 +7,7 @@ import { formatEventDateTime, publicEventUrl, shareUrl, type EventSummary } from
 import { ApiError } from '../api/client';
 import { useSetAttendance } from '../api/hooks';
 import { currentLocale } from '../i18n';
+import { useWorkingImage } from '../lib/working-image';
 import { colors, spacing, typography } from '../theme';
 import { Icon } from './icon';
 import { Avatar, PromotedBadge, StatusBadge } from './ui';
@@ -35,6 +36,7 @@ export function EventPost({
   const { t } = useTranslation();
   const router = useRouter();
   const attendance = useSetAttendance(event.id, event.slug);
+  const poster = useWorkingImage(event.posterImage);
 
   // Optimistic: the heart fills on tap, not after the round trip.
   const [liked, setLiked] = useState(saved);
@@ -123,20 +125,21 @@ export function EventPost({
         onPress={onPosterPress}
       >
         <View style={styles.posterBox}>
-          {event.posterImage ? (
+          {poster.uri ? (
             <>
               {/* The whole poster over a blurred copy of itself, never cropped. */}
               <Image
-                source={{ uri: event.posterImage }}
+                source={{ uri: poster.uri }}
                 style={StyleSheet.absoluteFill}
                 contentFit="cover"
                 blurRadius={30}
               />
               <Image
-                source={{ uri: event.posterImage }}
+                source={{ uri: poster.uri }}
                 style={StyleSheet.absoluteFill}
                 contentFit="contain"
                 transition={200}
+                onError={poster.onError}
                 accessibilityIgnoresInvertColors
               />
             </>

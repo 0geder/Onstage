@@ -190,7 +190,11 @@
     "becauseYouFollow": "Jy volg hulle · {{venue}}",
     "socialProof": "{{interested}} belangstellend · {{going}} gaan",
     "doubleTapHint": "Dubbeltik om hierdie vertoning te stoor",
-    "openThread": "Maak die vertoning en sy gesprek oop"
+    "openThread": "Maak die vertoning en sy gesprek oop",
+    "showingNear": "Vertonings naby {{place}}",
+    "yourLocation": "jou ligging",
+    "change": "Verander",
+    "changeCity": "Verander die stad waarvan jy vertonings sien"
   },
   "onboarding": {
     "welcome": "Vind uit waar jou kunstenaars speel",

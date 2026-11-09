@@ -185,7 +185,11 @@
     "becauseYouFollow": "You follow them · {{venue}}",
     "socialProof": "{{interested}} interested · {{going}} going",
     "doubleTapHint": "Double-tap to save this gig",
-    "openThread": "Open the gig and its conversation"
+    "openThread": "Open the gig and its conversation",
+    "showingNear": "Gigs near {{place}}",
+    "yourLocation": "your location",
+    "change": "Change",
+    "changeCity": "Change the city you see gigs for"
   },
   "onboarding": {
     "welcome": "Find out where your artists are playing",
