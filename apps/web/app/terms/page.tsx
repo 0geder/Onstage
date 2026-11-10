@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Terms',
@@ -34,6 +35,24 @@ export default function TermsPage() {
         sale between users, and we are not a party to one. Any arrangement you make in a thread is
         entirely at your own risk. Never pay before you have verified both the seller and the
         ticket. Report anything that looks like a scam — we ban accounts for it.
+      </p>
+
+      <h2>Comments and reviews</h2>
+      <p className="muted">
+        You are responsible for what you post. There is no tolerance for scams, harassment, hate
+        speech, sexual content, threats, spam, or asking for payment outside a ticket
+        provider&rsquo;s own site. Any signed-in user can report a comment from the app; posts that look like
+        scams are hidden automatically pending review, and a moderator checks reported posts. We
+        remove content and suspend accounts that break these rules. To raise anything else, email
+        privacy@onstage.co.za.
+      </p>
+
+      <h2>Your account</h2>
+      <p className="muted">
+        You can delete your account at any time — see{' '}
+        <Link href="/delete-account">how to delete your account</Link> and our{' '}
+        <Link href="/privacy">privacy policy</Link>. Onstage is provided by [COMPANY REGISTERED
+        NAME].
       </p>
 
       <h2>Listings</h2>
