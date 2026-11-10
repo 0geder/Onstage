@@ -5,6 +5,8 @@
  * venue at night. A light theme would be the wrong default for the context.
  */
 
+import type { EventStatus } from '@onstage/shared';
+
 export const colors = {
   background: '#0B0B0F',
   surface: '#15151C',
@@ -56,8 +58,6 @@ export const typography = {
   label: { fontSize: 13, fontWeight: '600' as const },
   caption: { fontSize: 12, fontWeight: '400' as const },
 } as const;
-
-import type { EventStatus } from '@onstage/shared';
 
 export function statusColour(status: EventStatus): string {
   switch (status) {

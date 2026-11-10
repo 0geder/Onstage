@@ -53,7 +53,6 @@ export default function DiscoverScreen() {
   const [cityName, setCityName] = useState<string | null>(null);
   const [radiusKm, setRadiusKm] = useState(50);
   const [genres, setGenres] = useState<string[]>([]);
-  const [locationAsked, setLocationAsked] = useState(false);
   // Someone abroad, or planning a trip, wants another city's gigs.
   const [pickingCity, setPickingCity] = useState(false);
 
@@ -71,7 +70,6 @@ export default function DiscoverScreen() {
       if ((await currentPermission()) === 'granted') {
         const result = await requestLocation();
         if (result.status === 'granted') setCentre(result.point);
-        setLocationAsked(true);
       }
     })();
   }, []);
@@ -91,7 +89,6 @@ export default function DiscoverScreen() {
   );
 
   const askForLocation = async () => {
-    setLocationAsked(true);
     const result = await requestLocation();
     if (result.status === 'granted') {
       setCentre(result.point);
