@@ -57,6 +57,10 @@ CMD ["node", "apps/worker/dist/main.js"]
 
 # ── Next.js apps (standalone output) ────────────────────────────────────────
 FROM base AS web-build
+# Next inlines NEXT_PUBLIC_* values at build time; compose passes these.
+ARG NEXT_PUBLIC_WEB_BASE_URL
+ARG NEXT_PUBLIC_SENTRY_DSN
+ARG NEXT_PUBLIC_SENTRY_ENVIRONMENT
 COPY . .
 RUN npm ci -w @onstage/shared -w @onstage/web --include-workspace-root --no-audit --no-fund \
  && npm run build -w @onstage/shared \
@@ -71,6 +75,10 @@ EXPOSE 3000
 CMD ["node", "apps/web/server.js"]
 
 FROM base AS admin-build
+# Next inlines NEXT_PUBLIC_* values at build time; compose passes these.
+ARG NEXT_PUBLIC_WEB_BASE_URL
+ARG NEXT_PUBLIC_SENTRY_DSN
+ARG NEXT_PUBLIC_SENTRY_ENVIRONMENT
 COPY . .
 RUN npm ci -w @onstage/shared -w @onstage/admin --include-workspace-root --no-audit --no-fund \
  && npm run build -w @onstage/shared \

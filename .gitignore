@@ -9,7 +9,12 @@ coverage/
 .env
 .env.local
 .env.*.local
+.env.production
 !.env.example
+!.env.production.example
+
+# Database dumps made by scripts/backup-db.sh
+backups/
 
 *.log
 npm-debug.log*

@@ -1,0 +1,58 @@
+# Onstage — public entry point. Mounted into the caddy service by
+# docker-compose.prod.yml. Domain names and the certificate e-mail come from
+# .env.production (API_DOMAIN, WEB_DOMAIN, ADMIN_DOMAIN, ACME_EMAIL).
+#
+# Caddy fetches and renews Let's Encrypt certificates on its own, as soon as
+# each domain's DNS points at this server and ports 80 and 443 are open.
+#
+# Client IPs: Caddy is the first hop, so it ignores any X-Forwarded-For a
+# client sends and sets it to the real connecting address. The API trusts
+# exactly one hop (TRUST_PROXY=1), so rate limits key on the real client.
+# If you ever put Cloudflare (or another proxy) in front of this server, add
+# its address ranges under `trusted_proxies` below and raise TRUST_PROXY to 2.
+
+{
+	email {$ACME_EMAIL}
+
+	# Only if a CDN sits in front of this server (leave commented otherwise):
+	# servers {
+	# 	trusted_proxies static 173.245.48.0/20 103.21.244.0/22
+	# }
+}
+
+(common) {
+	header -Server
+	log {
+		output stdout
+		format console
+	}
+}
+
+# ── API, used by the mobile app ─────────────────────────────────────────────
+{$API_DOMAIN} {
+	import common
+	# The API compresses its own responses.
+	reverse_proxy api:3000
+}
+
+# ── Public website ───────────────────────────────────────────────────────────
+{$WEB_DOMAIN} {
+	import common
+	encode zstd gzip
+	reverse_proxy web:3000
+}
+
+www.{$WEB_DOMAIN} {
+	import common
+	redir https://{$WEB_DOMAIN}{uri} permanent
+}
+
+# ── Admin CMS ────────────────────────────────────────────────────────────────
+{$ADMIN_DOMAIN} {
+	import common
+	encode zstd gzip
+	# Optional: allow only your own IP addresses into the CMS.
+	# @blocked not remote_ip 203.0.113.10/32
+	# respond @blocked 403
+	reverse_proxy admin:3000
+}
