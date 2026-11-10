@@ -1,7 +1,8 @@
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { request } from '../../src/api/client';
 import {
@@ -14,6 +15,8 @@ import { Button, Divider, Loading, Screen, SectionHeading } from '../../src/comp
 import { forgetLocation } from '../../src/lib/location';
 import { enablePush } from '../../src/lib/push';
 import { colors, radii, spacing, typography } from '../../src/theme';
+
+const WEB_BASE = process.env.EXPO_PUBLIC_WEB_BASE_URL ?? 'https://onstage.co.za';
 
 /**
  * Privacy settings (POPIA).
@@ -117,6 +120,22 @@ export default function PrivacyScreen() {
               accessibilityLabel={consent.label}
             />
           </View>
+        ))}
+
+        <Divider />
+
+        {(['policy', 'terms'] as const).map((page) => (
+          <Pressable
+            key={page}
+            accessibilityRole="link"
+            style={styles.row}
+            onPress={() =>
+              void WebBrowser.openBrowserAsync(`${WEB_BASE}/${page === 'policy' ? 'privacy' : 'terms'}`)
+            }
+          >
+            <Text style={[styles.label, { flex: 1 }]}>{t(`privacy.${page}`)}</Text>
+            <Text style={styles.meta}>›</Text>
+          </Pressable>
         ))}
 
         <Divider />

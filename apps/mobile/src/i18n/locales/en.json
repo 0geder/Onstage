@@ -17,6 +17,7 @@
     "setupBody": "The API address (EXPO_PUBLIC_API_BASE_URL) was not set when this build was made."
   },
   "auth": {
+    "agreement": "By continuing, you accept the Onstage terms and privacy policy.",
     "signInTitle": "Sign in",
     "signUpTitle": "Create your account",
     "email": "Email",
@@ -244,6 +245,7 @@
     "title": "Privacy",
     "consents": "What you’ve agreed to",
     "policy": "Privacy policy",
+    "terms": "Terms of use",
     "exportData": "Download my data",
     "deleteAccount": "Delete my account",
     "deleteBody": "We’ll remove your account and personal data within 30 days. Notifications stop immediately.",

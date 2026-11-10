@@ -22,6 +22,7 @@
     "setupBody": "Die API-adres (EXPO_PUBLIC_API_BASE_URL) is nie gestel toe hierdie weergawe gebou is nie."
   },
   "auth": {
+    "agreement": "Deur voort te gaan, aanvaar jy Onstage se voorwaardes en privaatheidsbeleid.",
     "signInTitle": "Meld aan",
     "signUpTitle": "Skep jou rekening",
     "email": "E-pos",
@@ -249,6 +250,7 @@
     "title": "Privaatheid",
     "consents": "Waartoe jy ingestem het",
     "policy": "Privaatheidsbeleid",
+    "terms": "Gebruiksvoorwaardes",
     "exportData": "Laai my data af",
     "deleteAccount": "Skrap my rekening",
     "deleteBody": "Ons verwyder jou rekening en persoonlike data binne 30 dae. Kennisgewings hou onmiddellik op.",

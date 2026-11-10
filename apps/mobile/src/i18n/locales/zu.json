@@ -22,6 +22,7 @@
     "setupBody": "Ikheli le-API (EXPO_PUBLIC_API_BASE_URL) alizange lisethwe ngesikhathi kwenziwa le nguqulo."
   },
   "auth": {
+    "agreement": "Ngokuqhubeka, wamukela imigomo nenqubomgomo yobumfihlo ka-Onstage.",
     "signInTitle": "Ngena",
     "signUpTitle": "Dala i-akhawunti yakho",
     "email": "I-imeyili",
@@ -249,6 +250,7 @@
     "title": "Ubumfihlo",
     "consents": "Lokho okuvumele kukho",
     "policy": "Inqubomgomo yobumfihlo",
+    "terms": "Imigomo yokusetshenziswa",
     "exportData": "Landa idatha yami",
     "deleteAccount": "Susa i-akhawunti yami",
     "deleteBody": "Sizosusa i-akhawunti yakho nedatha yakho siqu phakathi kwezinsuku ezingu-30. Izaziso ziyama ngokushesha.",

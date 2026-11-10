@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { signUpWithEmail } from '../../src/lib/auth';
 import { firebaseConfigured } from '../../src/lib/firebase';
 import { routeAfterAuth } from '../../src/lib/post-auth';
+import { LegalLinks } from '../../src/components/legal-links';
 import { Button, Screen } from '../../src/components/ui';
 import { colors, radii, spacing, typography } from '../../src/theme';
 
@@ -98,6 +99,8 @@ export default function SignUpScreen() {
         <Link href="/auth/sign-in" style={styles.link}>
           {t('auth.haveAccount')}
         </Link>
+
+        <LegalLinks />
       </ScrollView>
     </Screen>
   );

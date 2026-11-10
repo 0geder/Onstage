@@ -12,6 +12,7 @@ import {
 import { firebaseConfigured } from '../../src/lib/firebase';
 import { googleSignInConfigured, promptGoogleIdToken } from '../../src/lib/google-sign-in';
 import { routeAfterAuth } from '../../src/lib/post-auth';
+import { LegalLinks } from '../../src/components/legal-links';
 import { Button, Divider, Screen } from '../../src/components/ui';
 import { colors, radii, spacing, typography } from '../../src/theme';
 
@@ -144,6 +145,8 @@ export default function SignInScreen() {
         <Link href="/auth/sign-up" style={styles.link}>
           {t('auth.needAccount')}
         </Link>
+
+        <LegalLinks />
       </ScrollView>
     </Screen>
   );

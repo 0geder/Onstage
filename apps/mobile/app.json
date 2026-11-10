@@ -29,6 +29,11 @@
         "backgroundColor": "#0B0B0F"
       },
       "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
       "intentFilters": [
         {
           "action": "VIEW",
@@ -57,7 +62,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Onstage uses your location to show gigs happening near you."
+          "locationWhenInUsePermission": "Onstage uses your location to show gigs happening near you. You can decline and search by city instead."
         }
       ],
       [
