@@ -5,6 +5,7 @@ import { config } from './config';
 import { withJobLock } from './job-lock';
 import { logger } from './logger';
 import { prisma } from './prisma';
+import { assertProductionConfig } from './production-checks';
 import { runIngestion } from './pipeline/run';
 import { executeAccountDeletions } from './jobs/account-deletion';
 import { drainOutbox } from './jobs/outbox';
@@ -52,6 +53,12 @@ function schedule(name: string, pattern: string, task: () => Promise<unknown>): 
 }
 
 async function main(): Promise<void> {
+  // Before any job is scheduled: a missing production secret stops the boot here.
+  assertProductionConfig();
+  if (process.env.NODE_ENV === 'production' && process.env.PUSH_DELIVERY !== 'expo') {
+    logger.warn('PUSH_DELIVERY is not "expo": notifications will be logged, not sent.');
+  }
+
   logger.info(
     { markets: config.markets, ingestion: config.ingestionEnabled, timezone: config.timezone },
     'Onstage worker starting',

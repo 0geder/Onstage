@@ -9,6 +9,7 @@ import compression from 'compression';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { assertProductionConfig } from './config/production-checks';
 import { buildOpenApi } from './openapi';
 
 /** Local dev servers (CMS, web, Expo web) on any port. */
@@ -29,8 +30,19 @@ function corsOptions(origins: string[], nodeEnv: string): CorsOptions {
 }
 
 async function bootstrap(): Promise<void> {
+  // Before anything connects: a production boot with a missing or placeholder
+  // secret stops here, naming the variables.
+  assertProductionConfig();
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: false });
   const config = app.get(ConfigService);
+
+  // SIGTERM (docker stop) runs onModuleDestroy, which closes Prisma and Redis.
+  app.enableShutdownHooks();
+
+  // Every request body is small JSON; refuse anything larger before parsing it.
+  app.useBodyParser('json', { limit: '100kb' });
+  app.useBodyParser('urlencoded', { limit: '100kb', extended: true });
 
   // Behind a load balancer req.ip is the proxy unless we trust its hops; the
   // throttler keys on req.ip, so this decides whether rate limits work at all.

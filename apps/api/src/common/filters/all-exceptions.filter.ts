@@ -35,8 +35,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const { status, message, error } = this.translate(exception);
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      // Path only: query strings carry coordinates and search terms (POPIA).
       this.logger.error(
-        `${request.method} ${request.url} -> ${status}`,
+        `${request.method} ${request.path} -> ${status}`,
         exception instanceof Error ? exception.stack : String(exception),
       );
       // Only our own failures: a 4xx is the caller's mistake, not a bug.
@@ -90,6 +91,22 @@ export class AllExceptionsFilter implements ExceptionFilter {
         default:
           break;
       }
+    }
+
+    // body-parser's own client errors (http-errors, e.g. 413 for an oversized
+    // body) are the caller's mistake, not a 500 to page anyone about.
+    const httpError = exception as { status?: unknown; expose?: unknown; message?: unknown };
+    if (
+      httpError?.expose === true &&
+      typeof httpError.status === 'number' &&
+      httpError.status >= 400 &&
+      httpError.status < 500
+    ) {
+      return {
+        status: httpError.status,
+        message: typeof httpError.message === 'string' ? httpError.message : 'Bad request.',
+        error: httpError.status === HttpStatus.PAYLOAD_TOO_LARGE ? 'PayloadTooLarge' : 'BadRequest',
+      };
     }
 
     return {
