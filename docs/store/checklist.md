@@ -43,15 +43,15 @@ They're listed so the team can schedule them.
 
 | # | Item | Why | Where |
 | --- | --- | --- | --- |
-| 1 | ⬜ **Block user** in comment threads | Apple Guideline 1.2 requires it for UGC. **Likely rejection without it.** | `apps/mobile/src/components/event-thread.tsx` + API |
-| 2 | ⬜ **Link to the privacy policy inside the app** (Privacy settings and sign-up screens) | Apple 5.1.1(i); the `privacy.policy` string exists but isn't used | `apps/mobile/app/settings/privacy.tsx`, `app/auth/sign-up.tsx` |
+| 1 | ✅ **Block user** in comment threads | Apple Guideline 1.2 requires it for UGC. | `apps/mobile/src/components/event-thread.tsx` + API |
+| 2 | ✅ **Link to the privacy policy inside the app** (Privacy settings and sign-up screens) | Apple 5.1.1(i); the `privacy.policy` string exists but isn't used | `apps/mobile/app/settings/privacy.tsx`, `app/auth/sign-up.tsx` |
 | 3 | ⬜ **Sign in with Apple token revocation on account deletion** | Apple 5.1.1(v) for SIWA accounts; documented as not implemented | `apps/worker/src/jobs/account-deletion.ts`, `apps/mobile/src/lib/auth.ts` |
-| 4 | ⬜ Expose "delete my comment" in the app | UGC hygiene; the API already supports it | `event-thread.tsx` |
-| 5 | ⬜ Scrub `lat`/`lng` from mobile Sentry breadcrumbs (`beforeBreadcrumb`) | Precise location currently reaches Sentry in breadcrumb URLs; the API already denies these params | `apps/mobile/src/lib/sentry.ts` |
-| 6 | ⬜ Align the two iOS location strings | `infoPlist.NSLocationWhenInUseUsageDescription` and the `expo-location` plugin string differ | `apps/mobile/app.json` |
-| 7 | ⬜ Block unneeded Android permissions | The local prebuild manifest shows `SYSTEM_ALERT_WINDOW`, `READ/WRITE_EXTERNAL_STORAGE` (debug and dev-client leftovers). Add `android.blockedPermissions` and check the production AAB manifest. Consider dropping `ACCESS_FINE_LOCATION`: the app only requests Balanced accuracy. | `apps/mobile/app.json` |
+| 4 | ✅ Expose "delete my comment" in the app | UGC hygiene; the API already supports it | `event-thread.tsx` |
+| 5 | ✅ Scrub `lat`/`lng` from mobile Sentry breadcrumbs (`beforeBreadcrumb`) | Precise location currently reaches Sentry in breadcrumb URLs; the API already denies these params | `apps/mobile/src/lib/sentry.ts` |
+| 6 | ✅ Align the two iOS location strings | `infoPlist.NSLocationWhenInUseUsageDescription` and the `expo-location` plugin string differ | `apps/mobile/app.json` |
+| 7 | ✅ Block unneeded Android permissions | The local prebuild manifest shows `SYSTEM_ALERT_WINDOW`, `READ/WRITE_EXTERNAL_STORAGE` (debug and dev-client leftovers). Add `android.blockedPermissions` and check the production AAB manifest. Consider dropping `ACCESS_FINE_LOCATION`: the app only requests Balanced accuracy. | `apps/mobile/app.json` |
 | 8 | ⬜ Gate Sentry on the `analytics` consent, *or* relabel that toggle | The toggle says "usage analytics", but nothing reads it | `apps/mobile/src/lib/sentry.ts` |
-| 9 | ⬜ Add a `/support` page | Apple needs a support URL. (The `.well-known` files already exist as routes in `apps/web/app/.well-known/`; see §4.) | `apps/web` |
+| 9 | ✅ Add a `/support` page (fill in `[SUPPORT EMAIL]`) | Apple needs a support URL. (The `.well-known` files already exist as routes in `apps/web/app/.well-known/`; see §4.) | `apps/web` |
 | 10 | ⬜ Bump `PRIVACY_POLICY_VERSION` once the new policy is published | So existing consents show "Policy has changed" | API env (`apps/api/src/config/configuration.ts`, default `2026-01-01`) |
 | 11 | ⬜ Footer link to `/delete-account` (optional) | Discoverability; currently linked from /privacy and /terms | `apps/web/app/layout.tsx` |
 

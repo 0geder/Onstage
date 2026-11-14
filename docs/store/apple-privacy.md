@@ -118,17 +118,13 @@ Contact: [REVIEW CONTACT NAME], [REVIEW CONTACT PHONE], [REVIEW CONTACT EMAIL]
 
 ### Other review checks
 
-- **Privacy policy inside the app (Guideline 5.1.1(i)):** the app has a translated
-  "Privacy policy" string (`privacy.policy` in `apps/mobile/src/i18n/locales/en.json`),
-  but **no screen renders a link** to https://onstage.co.za/privacy. Add a link on the
-  Privacy settings screen and on the sign-up screen. Mobile change needed, outside this
-  task's scope.
+- **Privacy policy inside the app (Guideline 5.1.1(i)):** linked, with the terms, from
+  sign-in, sign-up and Settings → Privacy (`apps/mobile/src/components/legal-links.tsx`,
+  `app/settings/privacy.tsx`).
 - **UGC (Guideline 1.2):** filtering (auto-hide by scam score), reporting (in-app) and
-  moderator ban all exist. **There is no in-app "block user" feature.** Apple's 1.2
-  asks for a way to block abusive users. This is a real rejection risk; add "Block"
-  (hide that user's comments for the viewer) before submission. Users also can't
-  delete their own comments in the app, though the API supports it
-  (`DELETE /comments/:id`). Expose it.
+  moderator ban all exist. Users can **block** anyone from a comment's action row
+  (their comments and replies disappear for the blocker; unblock under Settings →
+  Privacy → Blocked people), and can **delete** their own comments.
 - **Encryption export compliance:** `usesNonExemptEncryption: false` is set in `app.json`
   (HTTPS only). Answer "No" in App Store Connect.
 - **Tablet:** `supportsTablet: false`, so iPhone only.

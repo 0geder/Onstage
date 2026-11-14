@@ -14,7 +14,7 @@ public comment threads under every event.
 | **Human moderation:** a moderation queue, hiding comments, banning and unbanning users (banned users are refused on every authenticated request). | `apps/api/src/modules/admin/admin.controller.ts` (`moderation/*`); `apps/api/src/common/auth/user-resolver.service.ts` |
 | Rate limiting on posting. | `comments.service.ts` (`enforceRateLimit`) |
 | **No** private messaging or chat between users. | No such module in `apps/api/src/modules` |
-| **No** user-to-user blocking, and no in-app delete for one's own comment (the API supports deletion). | `event-thread.tsx` has Like, Reply and Report only |
+| **Yes**, user-to-user blocking, and users can delete their own comments. | `event-thread.tsx` (Block, Delete), `apps/api/src/modules/blocks/` |
 | No photo, video or audio upload by users. The profile picture is a link from Google or Apple. Event posters and artist images come from ticketing partners and operators. | `schema.prisma` (`User.avatar` is a URL) |
 | Location is never shown to other users. Going/interested is shown by name only to mutual follows, and to everyone else as a count. | `apps/api/src/modules/events/events.service.ts` (`groupPlans`) |
 | No purchases, ads, gambling, loot boxes or rewards with cash value. Ticket and ride links open the provider's site or app. | `apps/mobile/app/event/[slug].tsx` |
@@ -46,7 +46,7 @@ Onstage's main purpose is event discovery, and comments are secondary.
 **Moderation questions that follow "users interact" = Yes:**
 - Can users report or flag content? **Yes** (in-app Report).
 - Is content moderated? **Yes**: automated scam filter plus human review of reported posts.
-- Can users block other users? **No** — see the gap below.
+- Can users block other users? **Yes.**
 
 **Expected result:** roughly IARC 12 / PEGI 12 / Teen / FPB 13, because of
 unrestricted user interaction. The interactive-element labels "Users Interact"
@@ -95,10 +95,8 @@ age-rating override of 18+, but that is a business choice, not a requirement.
 Apple Guideline 1.2 (UGC) requires all of:
 1. a filter for objectionable material ✅
 2. a way to report it ✅
-3. **the ability to block abusive users** ❌
+3. the ability to block abusive users ✅
 4. published contact information ✅ (privacy@onstage.co.za on /terms and /privacy)
 
-Add per-user blocking (hide a blocked user's comments for the viewer) in
-`apps/mobile/src/components/event-thread.tsx` plus an API endpoint before submitting to
-Apple. Also expose "Delete my comment" (API already supports `DELETE /comments/:id`).
-Play does not strictly require blocking, but its UGC policy expects the same safeguards.
+All four are in place. Blocking hides the blocked person's comments and replies for
+the blocker, and is listed and reversible under Settings → Privacy → Blocked people.
