@@ -384,25 +384,28 @@ model User {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  follows        Follow[]
-  attendances    Attendance[]
-  ratings        Rating[]
-  comments       Comment[]
-  commentLikes   CommentLike[]
-  reportsFiled   CommentReport[]      @relation("Reporter")
-  reportsHandled CommentReport[]      @relation("Moderator")
-  pushTokens     PushToken[]
-  claims         ArtistClaim[]        @relation("Claimant")
-  claimsReviewed ArtistClaim[]        @relation("ClaimReviewer")
-  outbox         NotificationOutbox[]
-  consents       UserConsent[]
-  badges         UserBadge[]
-  referralCode   ReferralCode?
-  referralsMade  Referral[]           @relation("Inviter")
-  following      UserFollow[]         @relation("Follower")
-  followers      UserFollow[]         @relation("Followee")
-  referralUsed   Referral?            @relation("Invitee")
-  ticketClicks   TicketClick[]
+  follows         Follow[]
+  attendances     Attendance[]
+  ratings         Rating[]
+  comments        Comment[]
+  commentLikes    CommentLike[]
+  reportsFiled    CommentReport[]      @relation("Reporter")
+  reportsHandled  CommentReport[]      @relation("Moderator")
+  pushTokens      PushToken[]
+  claims          ArtistClaim[]        @relation("Claimant")
+  claimsReviewed  ArtistClaim[]        @relation("ClaimReviewer")
+  outbox          NotificationOutbox[]
+  consents        UserConsent[]
+  badges          UserBadge[]
+  referralCode    ReferralCode?
+  referralsMade   Referral[]           @relation("Inviter")
+  following       UserFollow[]         @relation("Follower")
+  followers       UserFollow[]         @relation("Followee")
+  referralUsed    Referral?            @relation("Invitee")
+  ticketClicks    TicketClick[]
+  blocking        UserBlock[]          @relation("Blocker")
+  blockedBy       UserBlock[]          @relation("Blocked")
+  appleCredential AppleCredential?
 
   @@map("users")
 }
@@ -739,6 +742,23 @@ model UserFollow {
   @@map("user_follows")
 }
 
+/// Person-to-person blocks.
+///
+/// One-way: the blocker stops seeing the blocked person's comments and replies
+/// in event threads. The blocked person is not told and sees no change.
+model UserBlock {
+  blockerId String   @map("blocker_id") @db.Uuid
+  blockedId String   @map("blocked_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  blocker User @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@id([blockerId, blockedId])
+  @@index([blockedId])
+  @@map("user_blocks")
+}
+
 /// The latest Event Webhook payload Howler has sent for each event.
 ///
 /// Howler pushes rather than being polled: organisers point their event
@@ -756,4 +776,21 @@ model HowlerEvent {
 
   @@index([startsAt])
   @@map("howler_events")
+}
+
+/// The Sign in with Apple refresh token, kept only so account deletion can
+/// revoke it at Apple (App Store guideline 5.1.1(v)).
+///
+/// A table of its own so no user query, response or data export ever selects
+/// it by accident. Stored as Apple issued it (no app-level encryption helper
+/// exists yet); it cascades away with the user, after the worker revokes it.
+model AppleCredential {
+  userId       String   @id @map("user_id") @db.Uuid
+  refreshToken String   @map("refresh_token")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("apple_credentials")
 }

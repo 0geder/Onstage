@@ -11,6 +11,7 @@ import { RedisThrottlerStorage } from './common/redis/redis-throttler.storage';
 import { AdminModule } from './modules/admin/admin.module';
 import { ArtistsModule } from './modules/artists/artists.module';
 import { BadgesModule } from './modules/badges/badges.module';
+import { BlocksModule } from './modules/blocks/blocks.module';
 import { CommentsModule } from './modules/comments/comments.module';
 import { ConsentModule } from './modules/consent/consent.module';
 import { EventsModule } from './modules/events/events.module';
@@ -52,6 +53,7 @@ import { UsersModule } from './modules/users/users.module';
     SitemapModule,
     FeedModule,
     CommentsModule,
+    BlocksModule,
     RatingsModule,
     UsersModule,
     ReferralsModule,

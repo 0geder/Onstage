@@ -17,7 +17,15 @@ import {
   type CommentThread as ThreadKind,
   type ThreadComment,
 } from '@onstage/shared';
-import { useLikeComment, usePostComment, useReportComment, useThread } from '../api/hooks';
+import {
+  useBlockUser,
+  useDeleteComment,
+  useLikeComment,
+  useMe,
+  usePostComment,
+  useReportComment,
+  useThread,
+} from '../api/hooks';
 import { colors, radii, spacing, typography } from '../theme';
 import { Avatar, Chip, ChipRow, EmptyState, Loading, SectionHeading, WarningBanner } from './ui';
 
@@ -60,6 +68,8 @@ export function EventThread({
   const thread = useThread(eventId, { thread: kind, tag, sort });
   const post = usePostComment(eventId);
   const like = useLikeComment(eventId);
+  // Signed out, this resolves to nothing and the Block / Delete actions stay hidden.
+  const me = useMe();
 
   const recapOpen = new Date(startsAt) <= new Date();
 
@@ -201,6 +211,8 @@ export function EventThread({
               <Comment
                 key={comment.id}
                 comment={comment}
+                eventId={eventId}
+                viewerId={me.data?.id}
                 onReply={setReplyTo}
                 onLike={(liked) => like.mutate({ commentId: comment.id, liked })}
               />
@@ -214,17 +226,24 @@ export function EventThread({
 
 function Comment({
   comment,
+  eventId,
+  viewerId,
   onReply,
   onLike,
   depth = 0,
 }: {
   comment: ThreadComment;
+  eventId: string;
+  viewerId: string | undefined;
   onReply: (comment: ThreadComment) => void;
   onLike: (liked: boolean) => void;
   depth?: number;
 }) {
   const { t } = useTranslation();
   const report = useReportComment();
+  const block = useBlockUser();
+  const remove = useDeleteComment(eventId);
+  const isOwn = viewerId !== undefined && comment.author.id === viewerId;
 
   const promptReport = () => {
     Alert.alert(
@@ -240,6 +259,47 @@ function Comment({
             ),
         })),
         { text: t('common.cancel'), style: 'cancel' as const },
+      ],
+    );
+  };
+
+  const promptBlock = () => {
+    Alert.alert(
+      t('thread.blockTitle', { name: comment.author.displayName }),
+      t('thread.blockBody'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('thread.blockConfirm'),
+          style: 'destructive',
+          onPress: () =>
+            block.mutate(
+              { userId: comment.author.id, blocked: true },
+              { onError: (error) => Alert.alert(t('thread.title'), (error as Error).message) },
+            ),
+        },
+      ],
+    );
+  };
+
+  // Deleting a top-level comment takes its replies out of view with it (the API
+  // soft-deletes the root, and the thread only lists live roots), so say so.
+  const promptDelete = () => {
+    Alert.alert(
+      t('thread.deleteTitle'),
+      depth === 0 && comment.replyCount > 0
+        ? t('thread.deleteBodyWithReplies')
+        : t('thread.deleteBody'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('thread.delete'),
+          style: 'destructive',
+          onPress: () =>
+            remove.mutate(comment.id, {
+              onError: (error) => Alert.alert(t('thread.title'), (error as Error).message),
+            }),
+        },
       ],
     );
   };
@@ -287,15 +347,38 @@ function Comment({
             </Pressable>
           ) : null}
 
-          <Pressable accessibilityRole="button" onPress={promptReport}>
-            <Text style={styles.action}>{t('thread.report')}</Text>
-          </Pressable>
+          {isOwn ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={promptDelete}
+              disabled={remove.isPending}
+            >
+              <Text style={styles.action}>{t('thread.delete')}</Text>
+            </Pressable>
+          ) : (
+            <>
+              <Pressable accessibilityRole="button" onPress={promptReport}>
+                <Text style={styles.action}>{t('thread.report')}</Text>
+              </Pressable>
+              {viewerId ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={promptBlock}
+                  disabled={block.isPending}
+                >
+                  <Text style={styles.action}>{t('thread.block')}</Text>
+                </Pressable>
+              ) : null}
+            </>
+          )}
         </View>
 
         {comment.replies?.map((reply) => (
           <Comment
             key={reply.id}
             comment={reply}
+            eventId={eventId}
+            viewerId={viewerId}
             onReply={onReply}
             onLike={onLike}
             depth={depth + 1}

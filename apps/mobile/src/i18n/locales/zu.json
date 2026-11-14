@@ -173,7 +173,15 @@
       "offsite_payment": "Ucela inkokhelo ngaphandle kwenkundla",
       "other": "Okunye"
     },
-    "reportThanks": "Siyabonga — umphathi uzokubheka lokhu."
+    "reportThanks": "Siyabonga — umphathi uzokubheka lokhu.",
+    "block": "Vimba",
+    "blockTitle": "Vimba u-{{name}}?",
+    "blockBody": "Ngeke usabona amazwana noma izimpendulo zakhe kunoma iyiphi ingxoxo, futhi yena ngeke aziswe. Ungasusa ukumvimba ku-Izilungiselelo › Ubumfihlo.",
+    "blockConfirm": "Vimba",
+    "delete": "Susa",
+    "deleteTitle": "Susa lawa mazwana?",
+    "deleteBody": "Azosuswa engxoxweni kuwo wonke umuntu.",
+    "deleteBodyWithReplies": "Azosuswa engxoxweni kuwo wonke umuntu, futhi izimpendulo ezingaphansi kwawo ngeke zisaboniswa."
   },
   "feed": {
     "nearYou": "Eduze kwakho",
@@ -263,7 +271,12 @@
       "marketing_email": "Ngithumelele i-imeyili ngemibukiso nezici",
       "analytics": "Siza ukwenza i-Onstage ibe ngcono ngedatha yokusetshenziswa"
     },
-    "pushBlocked": "Izaziso zivaliwe ku-Onstage kuzilungiselelo zefoni yakho. Zivule lapho, bese uzama futhi."
+    "pushBlocked": "Izaziso zivaliwe ku-Onstage kuzilungiselelo zefoni yakho. Zivule lapho, bese uzama futhi.",
+    "blocked": "Abantu obavimbile",
+    "blockedEmpty": "Awukavimbi muntu. Ukuze uvimbe othile, thepha u-Vimba ngaphansi kwamazwana akhe.",
+    "unblock": "Susa ukuvimba",
+    "unblockTitle": "Susa ukuvimba u-{{name}}?",
+    "unblockBody": "Amazwana akhe azophinde avele ezingxoxweni."
   },
   "rating": {
     "title": "Linganisa u-{{name}}",

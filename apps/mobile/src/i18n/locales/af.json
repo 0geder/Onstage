@@ -173,7 +173,15 @@
       "offsite_payment": "Vra vir betaling buite die platform",
       "other": "Iets anders"
     },
-    "reportThanks": "Dankie — ’n moderator sal hierna kyk."
+    "reportThanks": "Dankie — ’n moderator sal hierna kyk.",
+    "block": "Blokkeer",
+    "blockTitle": "Blokkeer {{name}}?",
+    "blockBody": "Jy sal nie meer hul opmerkings of antwoorde in enige gesprek sien nie, en hulle word nie ingelig nie. Jy kan hulle by Instellings › Privaatheid deblokkeer.",
+    "blockConfirm": "Blokkeer",
+    "delete": "Skrap",
+    "deleteTitle": "Skrap hierdie opmerking?",
+    "deleteBody": "Dit word vir almal uit die gesprek verwyder.",
+    "deleteBodyWithReplies": "Dit word vir almal uit die gesprek verwyder, en die antwoorde daaronder sal nie meer gewys word nie."
   },
   "feed": {
     "nearYou": "Naby jou",
@@ -263,7 +271,12 @@
       "marketing_email": "E-pos my oor vertonings en nuwe funksies",
       "analytics": "Help om Onstage te verbeter met gebruiksdata"
     },
-    "pushBlocked": "Kennisgewings is vir Onstage in jou foon se instellings afgeskakel. Skakel dit daar aan en probeer weer."
+    "pushBlocked": "Kennisgewings is vir Onstage in jou foon se instellings afgeskakel. Skakel dit daar aan en probeer weer.",
+    "blocked": "Geblokkeerde mense",
+    "blockedEmpty": "Jy het nog niemand geblokkeer nie. Om iemand te blokkeer, tik Blokkeer onder een van hul opmerkings.",
+    "unblock": "Deblokkeer",
+    "unblockTitle": "Deblokkeer {{name}}?",
+    "unblockBody": "Hul opmerkings sal weer in gesprekke verskyn."
   },
   "rating": {
     "title": "Beoordeel {{name}}",

@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -15,6 +16,8 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '../../common/auth/auth.guard';
 import { CurrentUser, type AuthUser } from '../../common/auth/auth-user';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
+import { AppleSignInService } from './apple-sign-in.service';
+import { AppleAuthorizationDto } from './dto/apple-authorization.dto';
 import { CompleteOnboardingDto } from './dto/onboarding.dto';
 import { PushTokenDto, UpdateProfileDto } from './dto/profile.dto';
 import { UsersService } from './users.service';
@@ -24,7 +27,10 @@ import { UsersService } from './users.service';
 @UseGuards(AuthGuard)
 @Controller('me')
 export class UsersController {
-  constructor(private readonly users: UsersService) {}
+  constructor(
+    private readonly users: UsersService,
+    private readonly apple: AppleSignInService,
+  ) {}
 
   @Get()
   @ApiOperation({
@@ -123,5 +129,17 @@ export class UsersController {
   @ApiOperation({ summary: 'Deregister a device' })
   removePush(@Body() body: PushTokenDto, @CurrentUser() user: AuthUser) {
     return this.users.removePushToken(user.id, body.token);
+  }
+
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @Post('apple-authorization')
+  @HttpCode(204)
+  @ApiOperation({
+    summary: 'Register a Sign in with Apple authorization code',
+    description:
+      'Sent once after an Apple sign-in. The code is exchanged with Apple for a refresh token, kept only so it can be revoked when the account is deleted. Does nothing when the server has no Apple credentials.',
+  })
+  async appleAuthorization(@Body() body: AppleAuthorizationDto, @CurrentUser() user: AuthUser) {
+    await this.apple.storeAuthorization(user.id, body.authorizationCode);
   }
 }

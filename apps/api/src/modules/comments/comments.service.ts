@@ -21,6 +21,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { decodeCursor, pageOf } from '../../common/util/cursor';
 import { toThreadComment, type CommentWithAuthor } from '../../common/mappers';
 import type { AuthUser } from '../../common/auth/auth-user';
+import { BlocksService } from '../blocks/blocks.service';
 
 /** Posting limits. Deliberately tight: the resale tags attract bulk spam. */
 const RATE_LIMITS = {
@@ -38,6 +39,7 @@ export class CommentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cache: CacheService,
+    private readonly blocks: BlocksService,
   ) {}
 
   /**
@@ -77,12 +79,16 @@ export class CommentsService {
     }
 
     const keyset = decodeCursor(options.cursor, options.sort === 'top' ? 'number' : 'date');
+    // People the viewer has blocked disappear from the thread entirely, along
+    // with any replies they wrote under other people's comments.
+    const blocked = await this.blocks.blockedIds(viewer?.id);
     const where: Prisma.CommentWhereInput = {
       eventId,
       thread: options.thread,
       parentCommentId: null,
       deletedAt: null,
       moderationState: { not: 'hidden' },
+      ...(blocked.length > 0 ? { userId: { notIn: blocked } } : {}),
       ...(options.tag && options.tag !== 'none' ? { tag: options.tag } : {}),
     };
 
@@ -122,7 +128,10 @@ export class CommentsService {
       id: row.id,
     }));
 
-    const replies = await this.replyPreviews(page.items.map((row) => row.id));
+    const replies = await this.replyPreviews(
+      page.items.map((row) => row.id),
+      blocked,
+    );
     const replyRows = [...replies.values()].flat();
     const liked = await this.likedIds(
       viewer?.id,
@@ -150,11 +159,13 @@ export class CommentsService {
 
   async replies(parentId: string, limit: number, cursor: string | undefined, viewer?: AuthUser) {
     const keyset = decodeCursor(cursor);
+    const blocked = await this.blocks.blockedIds(viewer?.id);
     const rows = await this.prisma.comment.findMany({
       where: {
         parentCommentId: parentId,
         deletedAt: null,
         moderationState: { not: 'hidden' },
+        ...(blocked.length > 0 ? { userId: { notIn: blocked } } : {}),
         ...(keyset
           ? {
               OR: [
@@ -443,7 +454,10 @@ export class CommentsService {
     );
   }
 
-  private async replyPreviews(parentIds: string[]): Promise<Map<string, CommentWithAuthor[]>> {
+  private async replyPreviews(
+    parentIds: string[],
+    blockedAuthorIds: string[],
+  ): Promise<Map<string, CommentWithAuthor[]>> {
     const previews = new Map<string, CommentWithAuthor[]>();
     if (parentIds.length === 0) return previews;
 
@@ -456,6 +470,7 @@ export class CommentsService {
         WHERE c.parent_comment_id = ANY(${parentIds}::uuid[])
           AND c.deleted_at IS NULL
           AND c.moderation_state <> 'hidden'
+          AND NOT (c.user_id = ANY(${blockedAuthorIds}::uuid[]))
       ) ranked
       WHERE rn <= ${REPLY_PREVIEW}
     `;

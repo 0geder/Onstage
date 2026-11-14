@@ -11,6 +11,7 @@ import {
   useRecordConsent,
   useRequestDeletion,
 } from '../../src/api/hooks';
+import { BlockedPeople } from '../../src/components/blocked-people';
 import { Button, Divider, Loading, Screen, SectionHeading } from '../../src/components/ui';
 import { forgetLocation } from '../../src/lib/location';
 import { enablePush } from '../../src/lib/push';
@@ -137,6 +138,10 @@ export default function PrivacyScreen() {
             <Text style={styles.meta}>›</Text>
           </Pressable>
         ))}
+
+        <Divider />
+
+        <BlockedPeople />
 
         <Divider />
 

@@ -127,18 +127,30 @@ export class ConsentService {
 
   /** Everything Onstage holds about a user, for a data-access request. */
   async exportData(userId: string) {
-    const [user, follows, attendances, ratings, comments, consents, badges] = await Promise.all([
-      this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
-      this.prisma.follow.findMany({ where: { userId }, include: { artist: { select: { name: true } } } }),
-      this.prisma.attendance.findMany({
-        where: { userId },
-        include: { event: { select: { title: true, startsAt: true } } },
-      }),
-      this.prisma.rating.findMany({ where: { userId } }),
-      this.prisma.comment.findMany({ where: { userId }, select: { body: true, createdAt: true, eventId: true } }),
-      this.prisma.userConsent.findMany({ where: { userId } }),
-      this.prisma.userBadge.findMany({ where: { userId } }),
-    ]);
+    const [user, follows, attendances, ratings, comments, consents, badges, blocks] =
+      await Promise.all([
+        this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
+        this.prisma.follow.findMany({
+          where: { userId },
+          include: { artist: { select: { name: true } } },
+        }),
+        this.prisma.attendance.findMany({
+          where: { userId },
+          include: { event: { select: { title: true, startsAt: true } } },
+        }),
+        this.prisma.rating.findMany({ where: { userId } }),
+        this.prisma.comment.findMany({
+          where: { userId },
+          select: { body: true, createdAt: true, eventId: true },
+        }),
+        this.prisma.userConsent.findMany({ where: { userId } }),
+        this.prisma.userBadge.findMany({ where: { userId } }),
+        this.prisma.userBlock.findMany({
+          where: { blockerId: userId },
+          include: { blocked: { select: { handle: true, displayName: true } } },
+          orderBy: { createdAt: 'asc' },
+        }),
+      ]);
 
     return {
       exportedAt: new Date().toISOString(),
@@ -160,6 +172,12 @@ export class ConsentService {
       comments,
       consents,
       badges,
+      // Only who you blocked: who blocked you is their data, not yours.
+      blocked: blocks.map((row) => ({
+        handle: row.blocked.handle,
+        displayName: row.blocked.displayName,
+        since: row.createdAt,
+      })),
     };
   }
 }

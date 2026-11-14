@@ -185,6 +185,15 @@ export interface CommentAuthor {
   accountAgeDays: number;
 }
 
+/** Someone the viewer has blocked; their comments are hidden from the viewer. */
+export interface BlockedUser {
+  id: string;
+  handle: string;
+  displayName: string;
+  avatar: string | null;
+  blockedAt: string;
+}
+
 export interface Rating {
   id: string;
   artistId: string;

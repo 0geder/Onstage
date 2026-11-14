@@ -5,6 +5,7 @@ import type {
   ArtistSearchResult,
   ArtistSummary,
   ArtistViewerState,
+  BlockedUser,
   CommentSort,
   CommentTag,
   CommentThread,
@@ -43,6 +44,7 @@ export const queryKeys = {
   badges: () => ['me', 'badges'] as const,
   consents: () => ['me', 'consents'] as const,
   referral: () => ['me', 'referral'] as const,
+  blocks: () => ['me', 'blocks'] as const,
   pendingRatings: () => ['me', 'pending-ratings'] as const,
   genres: () => ['onboarding', 'genres'] as const,
 };
@@ -334,6 +336,51 @@ export function useReportComment() {
         method: 'POST',
         body: { reason },
       }),
+  });
+}
+
+/**
+ * Withdraw your own comment. The API soft-deletes it; a top-level comment takes
+ * its replies out of view with it.
+ */
+export function useDeleteComment(eventId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (commentId: string) =>
+      request<{ deleted: boolean }>(`/comments/${commentId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ['event', eventId, 'thread'] });
+      void client.invalidateQueries({ queryKey: queryKeys.event(eventId) });
+    },
+  });
+}
+
+/** Every cached thread, for any event: a block or unblock changes them all. */
+function invalidateAllThreads(client: ReturnType<typeof useQueryClient>) {
+  void client.invalidateQueries({
+    predicate: (query) => query.queryKey[0] === 'event' && query.queryKey[2] === 'thread',
+  });
+}
+
+export function useBlockedUsers() {
+  return useQuery({
+    queryKey: queryKeys.blocks(),
+    queryFn: () => request<{ items: BlockedUser[] }>('/me/blocks'),
+  });
+}
+
+/** Block or unblock someone. Their comments disappear from (or return to) every thread. */
+export function useBlockUser() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, blocked }: { userId: string; blocked: boolean }) =>
+      request<{ blocked: boolean }>(`/me/blocks/${userId}`, {
+        method: blocked ? 'POST' : 'DELETE',
+      }),
+    onSuccess: () => {
+      invalidateAllThreads(client);
+      void client.invalidateQueries({ queryKey: queryKeys.blocks() });
+    },
   });
 }
 

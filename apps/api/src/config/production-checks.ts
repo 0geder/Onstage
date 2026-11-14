@@ -66,6 +66,18 @@ export function productionConfigProblems(env: Env): string[] {
     problems.push(`HOWLER_WEBHOOK_TOKEN must be at least ${MIN_SECRET_LENGTH} characters when set.`);
   }
 
+  // Sign in with Apple is optional (iOS may launch later), but a half-set key
+  // would silently skip revocation. APPLE_TEAM_ID alone is fine: the website's
+  // app links use it too.
+  if (!blank(env.APPLE_KEY_ID) || !blank(env.APPLE_PRIVATE_KEY)) {
+    for (const name of ['APPLE_TEAM_ID', 'APPLE_KEY_ID', 'APPLE_PRIVATE_KEY']) {
+      if (blank(env[name])) problems.push(`${name} is not set (needed with the other Sign in with Apple keys).`);
+    }
+    if (!blank(env.APPLE_PRIVATE_KEY) && !env.APPLE_PRIVATE_KEY!.includes('PRIVATE KEY')) {
+      problems.push('APPLE_PRIVATE_KEY does not look like a PEM private key.');
+    }
+  }
+
   const origins = (env.CORS_ORIGINS ?? '')
     .split(',')
     .map((origin) => origin.trim())

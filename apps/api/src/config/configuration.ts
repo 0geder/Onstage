@@ -39,6 +39,35 @@ export interface AppConfig {
    * organiser list accepts any organiser who has the token.
    */
   howler: { webhookToken: string; organiserIds: number[] };
+  /**
+   * Sign in with Apple server credentials, used to exchange the authorization
+   * code captured at sign-in for a refresh token the worker revokes on account
+   * deletion (App Store guideline 5.1.1(v)). Null until all three secrets are set.
+   */
+  apple: AppleConfig | null;
+}
+
+export interface AppleConfig {
+  teamId: string;
+  keyId: string;
+  /** PEM of the .p8 key from Certificates, Identifiers & Profiles. */
+  privateKey: string;
+  /** The app's bundle id — the audience of the identity tokens it receives. */
+  clientId: string;
+}
+
+function parseApple(): AppleConfig | null {
+  const teamId = process.env.APPLE_TEAM_ID?.trim();
+  const keyId = process.env.APPLE_KEY_ID?.trim();
+  // Pasted with literal \n escapes, like FIREBASE_PRIVATE_KEY; restore real newlines.
+  const privateKey = process.env.APPLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+  if (!teamId || !keyId || !privateKey?.trim()) return null;
+  return {
+    teamId,
+    keyId,
+    privateKey,
+    clientId: process.env.APPLE_CLIENT_ID?.trim() || 'za.co.onstage',
+  };
 }
 
 /**
@@ -118,4 +147,5 @@ export default (): AppConfig => ({
       .map((id) => Number(id.trim()))
       .filter((id) => Number.isInteger(id) && id > 0),
   },
+  apple: parseApple(),
 });

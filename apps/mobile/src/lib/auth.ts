@@ -12,7 +12,7 @@ import {
   type User,
 } from 'firebase/auth';
 import { Platform } from 'react-native';
-import { clearCache, setTokenProvider } from '../api/client';
+import { clearCache, request, setTokenProvider } from '../api/client';
 import { getFirebaseAuth } from './firebase';
 import { unregisterPushToken } from './push';
 
@@ -131,6 +131,10 @@ export async function signInWithApple(): Promise<User> {
     });
     const result = await signInWithCredential(getFirebaseAuth(), credential);
 
+    if (appleCredential.authorizationCode) {
+      registerAppleAuthorization(appleCredential.authorizationCode);
+    }
+
     // Apple only supplies the person's name on the very first authorization —
     // capture it now or it is gone for good.
     const fullName = appleCredential.fullName;
@@ -147,6 +151,19 @@ export async function signInWithApple(): Promise<User> {
     }
     throw new AuthError(friendlyMessage(error));
   }
+}
+
+/**
+ * Hands the one-time Apple authorization code to the API, which exchanges it
+ * for a refresh token so account deletion can revoke the app's access at Apple
+ * (App Store guideline 5.1.1(v)). Fire-and-forget: the code expires in five
+ * minutes and a failure here must never get in the way of signing in.
+ */
+function registerAppleAuthorization(authorizationCode: string): void {
+  request('/me/apple-authorization', {
+    method: 'POST',
+    body: { authorizationCode },
+  }).catch(() => undefined);
 }
 
 /**

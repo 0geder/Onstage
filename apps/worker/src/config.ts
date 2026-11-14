@@ -1,5 +1,6 @@
 import { config as loadEnv } from 'dotenv';
 import { resolve } from 'node:path';
+import type { AppleCredentials } from './apple';
 
 // The worker runs standalone, so it loads the repo-root .env itself.
 loadEnv({ path: resolve(__dirname, '../../../.env') });
@@ -38,6 +39,11 @@ export interface WorkerConfig {
   };
   /** Firebase Admin credentials, the same ones the API uses. All three or none. */
   firebase?: { projectId: string; clientEmail: string; privateKey: string };
+  /**
+   * Sign in with Apple credentials, the same ones the API uses, for revoking
+   * Apple tokens on account deletion. Absent until team, key id and key are set.
+   */
+  apple?: AppleCredentials;
   providers: {
     bandsintown: ProviderConfig;
     songkick: ProviderConfig;
@@ -75,6 +81,17 @@ export const config: WorkerConfig = {
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
           // Private keys are pasted with literal \n escapes; restore real newlines.
           privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        }
+      : undefined,
+  apple:
+    process.env.APPLE_TEAM_ID?.trim() &&
+    process.env.APPLE_KEY_ID?.trim() &&
+    process.env.APPLE_PRIVATE_KEY?.trim()
+      ? {
+          teamId: process.env.APPLE_TEAM_ID.trim(),
+          keyId: process.env.APPLE_KEY_ID.trim(),
+          privateKey: process.env.APPLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+          clientId: process.env.APPLE_CLIENT_ID?.trim() || 'za.co.onstage',
         }
       : undefined,
   providers: {

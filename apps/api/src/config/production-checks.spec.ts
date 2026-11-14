@@ -57,6 +57,25 @@ describe('productionConfigProblems', () => {
     expect(problems[0]).toContain(name);
   });
 
+  it('treats Sign in with Apple as optional, but not half-configured', () => {
+    const key = '-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----\n';
+    expect(productionConfigProblems(prodEnv({ APPLE_TEAM_ID: 'TEAM123456' }))).toEqual([]);
+    expect(
+      productionConfigProblems(
+        prodEnv({ APPLE_TEAM_ID: 'TEAM123456', APPLE_KEY_ID: 'KEY1234567', APPLE_PRIVATE_KEY: key }),
+      ),
+    ).toEqual([]);
+
+    const missingTeam = productionConfigProblems(prodEnv({ APPLE_KEY_ID: 'KEY1234567', APPLE_PRIVATE_KEY: key }));
+    expect(missingTeam).toHaveLength(1);
+    expect(missingTeam[0]).toContain('APPLE_TEAM_ID');
+
+    const badKey = productionConfigProblems(
+      prodEnv({ APPLE_TEAM_ID: 'TEAM123456', APPLE_KEY_ID: 'KEY1234567', APPLE_PRIVATE_KEY: 'nope' }),
+    );
+    expect(badKey).toEqual(['APPLE_PRIVATE_KEY does not look like a PEM private key.']);
+  });
+
   it('reports every problem at once', () => {
     const problems = productionConfigProblems({ NODE_ENV: 'production' });
     for (const name of ['DATABASE_URL', 'REDIS_URL', 'FIREBASE_PROJECT_ID', 'ADMIN_API_TOKEN', 'CORS_ORIGINS', 'TRUST_PROXY']) {

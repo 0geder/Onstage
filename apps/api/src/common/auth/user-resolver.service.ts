@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthUser } from './auth-user';
 import type { VerifiedToken } from './token-verifier.service';
@@ -37,6 +38,20 @@ export class UserResolverService {
     const email = token.email ?? `${token.uid}@users.onstage.local`;
     const handle = await this.uniqueHandle(token.name ?? email.split('@')[0]);
 
+    try {
+      return await this.create(token, email, handle);
+    } catch (error) {
+      // A new app fires several requests at once after sign-in; if another one
+      // provisioned this user first, use that row rather than failing.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const raced = await this.prisma.user.findUnique({ where: { authUid: token.uid } });
+        if (raced) return raced;
+      }
+      throw error;
+    }
+  }
+
+  private create(token: VerifiedToken, email: string, handle: string) {
     return this.prisma.user.create({
       data: {
         authUid: token.uid,

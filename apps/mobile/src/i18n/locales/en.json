@@ -168,7 +168,15 @@
       "offsite_payment": "Asking for payment off the platform",
       "other": "Something else"
     },
-    "reportThanks": "Thanks — a moderator will look at this."
+    "reportThanks": "Thanks — a moderator will look at this.",
+    "block": "Block",
+    "blockTitle": "Block {{name}}?",
+    "blockBody": "You won't see their comments or replies in any thread, and they won't be told. You can unblock them in Settings › Privacy.",
+    "blockConfirm": "Block",
+    "delete": "Delete",
+    "deleteTitle": "Delete this comment?",
+    "deleteBody": "It will be removed from the thread for everyone.",
+    "deleteBodyWithReplies": "It will be removed from the thread for everyone, and the replies under it will no longer be shown."
   },
   "feed": {
     "nearYou": "Near you",
@@ -258,7 +266,12 @@
       "marketing_email": "Email me about shows and features",
       "analytics": "Help improve Onstage with usage analytics"
     },
-    "pushBlocked": "Notifications are turned off for Onstage in your phone settings. Turn them on there, then try again."
+    "pushBlocked": "Notifications are turned off for Onstage in your phone settings. Turn them on there, then try again.",
+    "blocked": "Blocked people",
+    "blockedEmpty": "You haven't blocked anyone. To block someone, tap Block under one of their comments.",
+    "unblock": "Unblock",
+    "unblockTitle": "Unblock {{name}}?",
+    "unblockBody": "Their comments will show in threads again."
   },
   "rating": {
     "title": "Rate {{name}}",

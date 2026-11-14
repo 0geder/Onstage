@@ -107,6 +107,9 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       throw new ApiError(message, response.status);
     }
 
+    // 204 No Content has no body to parse.
+    if (response.status === 204) return undefined as T;
+
     const data = (await response.json()) as T;
     if (options.cache) await writeCache(options.cache.key, data);
     return data;

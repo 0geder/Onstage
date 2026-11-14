@@ -1,5 +1,7 @@
+import * as Sentry from '@sentry/node';
 import type { Auth } from 'firebase-admin/auth';
 import type { Prisma } from '@prisma/client';
+import { revokeAppleRefreshToken, type AppleCredentials } from '../apple';
 import { config } from '../config';
 import { logger } from '../logger';
 import { prisma } from '../prisma';
@@ -15,7 +17,7 @@ import { prisma } from '../prisma';
  * Almost everything goes through ON DELETE CASCADE from users: follows,
  * attendance, ratings, comments, likes, reports filed, push tokens, outbox,
  * consents, badges, claims, referral code and referrals, person-to-person
- * follows. Ticket clicks are SET NULL (affiliate reconciliation keeps the
+ * follows, and blocks in both directions (made by or against the user). Ticket clicks are SET NULL (affiliate reconciliation keeps the
  * anonymous click), as are reports the user handled as a moderator.
  *
  * Two things need handling by hand:
@@ -31,10 +33,15 @@ import { prisma } from '../prisma';
  *     counts). They are recomputed from the surviving rows in the same
  *     transaction, the way the API recomputes rating averages.
  *
- * Not covered: Sign in with Apple token revocation (Apple requires the app to
- * revoke the user's refresh token on deletion; that needs the Apple
- * authorization code captured at sign-in, which nothing stores today). Cached
- * API responses in Redis expire on their own TTL.
+ * Sign in with Apple: App Store guideline 5.1.1(v) requires revoking the
+ * user's Apple tokens on deletion. The API stored the refresh token from the
+ * sign-in authorization code (apple_credentials); it is revoked here before
+ * anything else, and the row cascades away with the user. A failed revocation
+ * is logged and sent to Sentry but never holds up the deletion — removing the
+ * person's data is the legal obligation, and the token is useless to anyone
+ * once the account it belongs to is gone.
+ *
+ * Cached API responses in Redis expire on their own TTL.
  */
 
 /** Placeholder author for anonymised comments. `.invalid` can never be a real address. */
@@ -51,7 +58,7 @@ export async function executeAccountDeletions(): Promise<{ deleted: number; fail
 
   const due = await prisma.user.findMany({
     where: { deletionRequestedAt: { lte: cutoff }, email: { not: PLACEHOLDER_EMAIL } },
-    select: { id: true, authUid: true },
+    select: { id: true, authUid: true, appleCredential: { select: { refreshToken: true } } },
     orderBy: { deletionRequestedAt: 'asc' },
     take: BATCH,
   });
@@ -67,9 +74,24 @@ export async function executeAccountDeletions(): Promise<{ deleted: number; fail
 
   let deleted = 0;
   let failed = 0;
+  let warnedAppleUnconfigured = false;
 
   for (const user of due) {
     try {
+      const appleToken = user.appleCredential?.refreshToken;
+      if (appleToken) {
+        if (config.apple) {
+          await revokeAppleToken(config.apple, user.id, appleToken);
+        } else if (!warnedAppleUnconfigured) {
+          warnedAppleUnconfigured = true;
+          const message =
+            'APPLE_TEAM_ID / APPLE_KEY_ID / APPLE_PRIVATE_KEY are not set; Apple tokens of deleted ' +
+            'accounts are not being revoked.';
+          logger.warn(message);
+          Sentry.captureMessage(message, 'warning');
+        }
+      }
+
       // Auth first: if it fails the database row survives and the whole
       // deletion is retried tomorrow. The other order would orphan the Auth
       // user with nothing left pointing at it.
@@ -93,6 +115,23 @@ export async function executeAccountDeletions(): Promise<{ deleted: number; fail
   }
 
   return { deleted, failed };
+}
+
+/** Never throws: a failed revocation must not stop the data being deleted. */
+async function revokeAppleToken(
+  credentials: AppleCredentials,
+  userId: string,
+  refreshToken: string,
+): Promise<void> {
+  try {
+    await revokeAppleRefreshToken(credentials, refreshToken);
+  } catch (error) {
+    logger.error(
+      { userId, err: (error as Error).message },
+      'Apple token revocation failed; deleting the account anyway',
+    );
+    Sentry.captureException(error, { tags: { job: 'account-deletion', step: 'apple-revoke' } });
+  }
 }
 
 /** Returns false when the request was withdrawn after this run selected the user. */
