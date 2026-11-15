@@ -133,6 +133,7 @@ export function EventPost({
                 style={StyleSheet.absoluteFill}
                 contentFit="cover"
                 blurRadius={30}
+                onError={poster.onError}
               />
               <Image
                 source={{ uri: poster.uri }}

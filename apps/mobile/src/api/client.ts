@@ -57,6 +57,8 @@ export async function clearLegacyToken(): Promise<void> {
   await AsyncStorage.removeItem(LEGACY_TOKEN_KEY).catch(() => undefined);
 }
 
+const REQUEST_TIMEOUT_MS = 20_000;
+
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
@@ -67,6 +69,15 @@ interface RequestOptions {
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const method = options.method ?? 'GET';
+
+  // A request on a weak mobile connection can stall without ever failing, which
+  // leaves a spinner up forever. Give up after a while so the cache or an
+  // honest "offline" message takes over. The caller's own signal still applies.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const abortFromCaller = () => controller.abort();
+  if (options.signal?.aborted) controller.abort();
+  options.signal?.addEventListener('abort', abortFromCaller);
 
   const send = async (forceRefresh: boolean) => {
     const token = await tokenProvider(forceRefresh).catch(() => null);
@@ -79,7 +90,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
         method,
         headers,
         body: options.body === undefined ? undefined : JSON.stringify(options.body),
-        signal: options.signal,
+        signal: controller.signal,
       }),
     };
   };
@@ -123,6 +134,9 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       if (stale) return stale;
     }
     throw new ApiError('You appear to be offline. Check your connection.', 0);
+  } finally {
+    clearTimeout(timer);
+    options.signal?.removeEventListener('abort', abortFromCaller);
   }
 }
 

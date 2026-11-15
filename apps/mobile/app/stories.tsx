@@ -87,6 +87,7 @@ export default function StoriesScreen() {
             style={StyleSheet.absoluteFill}
             contentFit="cover"
             blurRadius={40}
+            onError={image.onError}
           />
           <View style={[StyleSheet.absoluteFill, styles.dim]} />
           <Image
