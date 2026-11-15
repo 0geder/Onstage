@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/react-native';
-import Constants from 'expo-constants';
+import { sentryRelease } from './app-version';
 
 /**
  * Crash and error reporting. Off unless EXPO_PUBLIC_SENTRY_DSN is set, so dev
@@ -25,7 +25,7 @@ if (dsn) {
     dsn,
     environment:
       process.env.EXPO_PUBLIC_SENTRY_ENVIRONMENT ?? (__DEV__ ? 'development' : 'production'),
-    release: Constants.expoConfig?.version,
+    release: sentryRelease,
     sendDefaultPii: false,
     tracesSampleRate: 0.1,
     beforeBreadcrumb(breadcrumb) {

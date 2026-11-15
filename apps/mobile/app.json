@@ -2,7 +2,6 @@
   "expo": {
     "name": "Onstage",
     "slug": "onstage",
-    "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "onstage",
@@ -11,7 +10,6 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "za.co.onstage",
-      "buildNumber": "1",
       "associatedDomains": ["applinks:onstage.co.za"],
       "config": {
         "usesNonExemptEncryption": false
@@ -23,7 +21,6 @@
     },
     "android": {
       "package": "za.co.onstage",
-      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0B0B0F"

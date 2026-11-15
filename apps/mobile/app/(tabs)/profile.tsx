@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useBadges, useFollowing, useMe, usePlans, useReferralCode } from '../../src/api/hooks';
 import { ApiError } from '../../src/api/client';
 import { signOutUser } from '../../src/lib/auth';
+import { versionLabel } from '../../src/lib/app-version';
 import { useWorkingImage } from '../../src/lib/working-image';
 import { ArtistTile } from '../../src/components/cards';
 import {
@@ -184,6 +185,10 @@ export default function ProfileScreen() {
             onPress={() => void signOutUser().then(() => queryClient.resetQueries())}
           />
         </View>
+        {/* Which build this is, so a bug report or screenshot names its exact code. */}
+        <Text style={styles.version} selectable>
+          Onstage {versionLabel()}
+        </Text>
       </ScrollView>
     </Screen>
   );
@@ -312,6 +317,7 @@ const styles = StyleSheet.create({
   settingsLabel: { ...typography.body, color: colors.text },
   chevron: { color: colors.textFaint, fontSize: 22 },
   signOut: { padding: spacing.lg },
+  version: { ...typography.caption, color: colors.textFaint, textAlign: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 2 },
   gridCell: { width: '33%', aspectRatio: 4 / 5 },
   gridImage: { width: '100%', height: '100%', backgroundColor: colors.surface },

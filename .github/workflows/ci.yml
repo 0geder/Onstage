@@ -48,6 +48,13 @@ jobs:
           npm test -w @onstage/shared
           npm test -w @onstage/api
           npm test -w @onstage/worker
+          npm run test:scripts
+      - name: Versions agree
+        # The app reports apps/mobile's version; the release script keeps the
+        # root in step. A hand edit to one of them alone fails here.
+        run: |
+          node -e "const a=require('./package.json').version,b=require('./apps/mobile/package.json').version;if(a!==b){console.error('Version mismatch: root '+a+', mobile '+b);process.exit(1)}"
+          grep -q '^## \[Unreleased\]' CHANGELOG.md || { echo 'CHANGELOG.md needs an Unreleased section'; exit 1; }
       - name: Mobile bundles for iOS and Android
         working-directory: apps/mobile
         env:

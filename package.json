@@ -25,7 +25,9 @@
     "dev:api": "npm run dev -w @onstage/api",
     "dev:worker": "npm run dev -w @onstage/worker",
     "dev:admin": "npm run dev -w @onstage/admin",
-    "dev:mobile": "npm run start -w @onstage/mobile"
+    "dev:mobile": "npm run start -w @onstage/mobile",
+    "release": "node scripts/release.mjs",
+    "test:scripts": "node --test \"scripts/*.test.mjs\""
   },
   "devDependencies": {
     "prettier": "^3.3.3",
