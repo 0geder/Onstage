@@ -90,6 +90,7 @@ export class SearchService {
         WHERE e.primary_artist_id = ANY(${artistIds}::uuid[])
           AND e.starts_at >= NOW()
           AND e.status <> 'cancelled'
+          AND e.delisted_at IS NULL
         UNION ALL
         SELECT el.artist_id, e.id AS event_id, e.starts_at
         FROM event_lineups el
@@ -97,6 +98,7 @@ export class SearchService {
         WHERE el.artist_id = ANY(${artistIds}::uuid[])
           AND e.starts_at >= NOW()
           AND e.status <> 'cancelled'
+          AND e.delisted_at IS NULL
       ) x
       ORDER BY x.artist_id, x.starts_at ASC
     `;

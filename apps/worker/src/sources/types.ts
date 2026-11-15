@@ -86,14 +86,39 @@ export interface FetchWindow {
   markets: string[];
 }
 
+/**
+ * What an adapter saw of its source on one pass, filled in as it goes.
+ *
+ * The pipeline retires events a source has stopped listing, which is only
+ * safe when the pass saw everything the source lists for the window. A page
+ * that failed and was skipped looks exactly like a quiet catalogue otherwise,
+ * so an adapter that moves on past a failure must say so here.
+ */
+export interface SweepReport {
+  /** Why this pass did not see the whole catalogue. Unset means it did. */
+  incomplete?: string;
+}
+
 export interface EventSourceAdapter {
   readonly name: EventSourceName;
+  /**
+   * True when one pass lists everything the source has for the window, so an
+   * event missing from a complete pass has gone from the source. False for a
+   * source only ever sampled (Bandsintown polls a capped list of artists),
+   * where absence proves nothing and nothing is ever delisted.
+   */
+  readonly sweepsWholeCatalogue: boolean;
   /** False when the provider has no credentials configured. */
   isEnabled(): boolean;
   /**
    * Fetches and normalises. Implementations should yield incrementally so a
    * provider that paginates for a long time does not hold everything in memory,
    * and so a failure partway through still leaves earlier pages ingested.
+   * Anything skipped on the way (a failed page, a paging cap) is recorded on
+   * `sweep`.
    */
-  fetchEvents(window: FetchWindow): AsyncGenerator<NormalisedEvent, void, undefined>;
+  fetchEvents(
+    window: FetchWindow,
+    sweep?: SweepReport,
+  ): AsyncGenerator<NormalisedEvent, void, undefined>;
 }

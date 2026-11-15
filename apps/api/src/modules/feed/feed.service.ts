@@ -79,6 +79,7 @@ export class FeedService {
       JOIN artists a ON a.id = e.primary_artist_id
       WHERE e.starts_at >= NOW()
         AND e.status <> 'cancelled'
+        AND e.delisted_at IS NULL
         AND ST_DWithin(
               v.geog,
               ST_SetSRID(ST_MakePoint(${centre.lng}, ${centre.lat}), 4326)::geography,
@@ -120,6 +121,7 @@ export class FeedService {
       where: {
         startsAt: { gte: new Date() },
         status: { not: 'cancelled' },
+        delistedAt: null,
         OR: [
           { primaryArtist: { follows: { some: { userId } } } },
           { lineup: { some: { artist: { follows: { some: { userId } } } } } },
@@ -148,6 +150,7 @@ export class FeedService {
         where: {
           startsAt: { gte: from, lte: to },
           status: { not: 'cancelled' },
+          delistedAt: null,
           ...(genres?.length ? { primaryArtist: { genres: { hasSome: genres } } } : {}),
         },
         include: { primaryArtist: true, venue: true },
@@ -169,6 +172,7 @@ export class FeedService {
       JOIN artists a ON a.id = e.primary_artist_id
       WHERE e.starts_at BETWEEN ${from} AND ${to}
         AND e.status <> 'cancelled'
+        AND e.delisted_at IS NULL
         AND ST_DWithin(
               v.geog,
               ST_SetSRID(ST_MakePoint(${centre.lng}, ${centre.lat}), 4326)::geography,

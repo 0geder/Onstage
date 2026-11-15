@@ -188,6 +188,7 @@ export function toEventDetail(
     source: row.source,
     sourceUrl: row.sourceUrl,
     lastSyncedAt: row.lastSyncedAt?.toISOString() ?? null,
+    delistedAt: row.delistedAt?.toISOString() ?? null,
     venue: toVenue(row.venue),
     lineup,
     ticketOptions: row.ticketOptions.map(toTicketOption),

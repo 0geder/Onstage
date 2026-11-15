@@ -34,7 +34,7 @@ export class SitemapController {
   })
   async events() {
     const rows = await this.prisma.event.findMany({
-      where: { status: { not: 'cancelled' } },
+      where: { status: { not: 'cancelled' }, delistedAt: null },
       select: { slug: true, updatedAt: true, startsAt: true },
       orderBy: { startsAt: 'desc' },
       take: 45_000,

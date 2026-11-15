@@ -260,7 +260,7 @@ export class UsersService {
       FROM artists a
       JOIN event_lineups l ON l.artist_id = a.id
       JOIN events e ON e.id = l.event_id
-      WHERE e.starts_at > NOW() AND e.status <> 'cancelled'
+      WHERE e.starts_at > NOW() AND e.status <> 'cancelled' AND e.delisted_at IS NULL
       GROUP BY a.id
       ORDER BY (a.genres && ${genres}::text[]) DESC, COUNT(*) DESC, a.follower_count DESC, a.name
       LIMIT ${limit}

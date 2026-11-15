@@ -89,6 +89,11 @@ const ARTISTS_PER_RUN = { hot: 60, cold: 400 } as const;
 
 export class BandsintownAdapter implements EventSourceAdapter {
   readonly name = 'bandsintown' as const;
+  /**
+   * Only the most-followed artists are polled each pass, so an event missing
+   * from a pass may simply belong to an artist not asked about this time.
+   */
+  readonly sweepsWholeCatalogue = false;
 
   isEnabled(): boolean {
     return config.providers.bandsintown.enabled;

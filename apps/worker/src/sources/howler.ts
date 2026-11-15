@@ -55,6 +55,12 @@ export interface HowlerTicketType {
 
 export class HowlerAdapter implements EventSourceAdapter {
   readonly name = 'howler' as const;
+  /**
+   * Reads every stored webhook payload in the window, so a pass is whole. A
+   * listing Howler unpublishes (back to `pending`) stops translating and is
+   * retired like any other vanished listing.
+   */
+  readonly sweepsWholeCatalogue = true;
 
   isEnabled(): boolean {
     return config.providers.howler.enabled;

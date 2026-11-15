@@ -113,6 +113,8 @@ export class ArtistsService {
           timeFilter,
           cursorFilter,
           { status: { not: 'cancelled' } },
+          // Gone from the seller: no telling whether it is (or was) on.
+          { delistedAt: null },
           {
             OR: [{ primaryArtistId: artistId }, { lineup: { some: { artistId } } }],
           },

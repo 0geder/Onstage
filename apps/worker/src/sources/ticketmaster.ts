@@ -2,7 +2,13 @@ import type { EventStatus, TicketAvailability } from '@onstage/shared';
 import { config } from '../config';
 import { logger } from '../logger';
 import { fetchJson } from './http';
-import type { EventSourceAdapter, FetchWindow, NormalisedEvent, NormalisedLineupEntry } from './types';
+import type {
+  EventSourceAdapter,
+  FetchWindow,
+  NormalisedEvent,
+  NormalisedLineupEntry,
+  SweepReport,
+} from './types';
 
 /**
  * Ticketmaster Discovery adapter.
@@ -70,12 +76,17 @@ const MAX_PAGES = 20;
 
 export class TicketmasterAdapter implements EventSourceAdapter {
   readonly name = 'ticketmaster' as const;
+  /** Discovery is queried by country and date range, not sampled. */
+  readonly sweepsWholeCatalogue = true;
 
   isEnabled(): boolean {
     return config.providers.ticketmaster.enabled;
   }
 
-  async *fetchEvents(window: FetchWindow): AsyncGenerator<NormalisedEvent, void, undefined> {
+  async *fetchEvents(
+    window: FetchWindow,
+    sweep: SweepReport = {},
+  ): AsyncGenerator<NormalisedEvent, void, undefined> {
     const { baseUrl, apiKey } = config.providers.ticketmaster;
     if (!apiKey) return;
 
@@ -97,6 +108,7 @@ export class TicketmasterAdapter implements EventSourceAdapter {
             { market, page, err: (error as Error).message },
             'Ticketmaster page failed; moving on',
           );
+          sweep.incomplete = `${market} page ${page} failed: ${(error as Error).message}`;
           break;
         }
 
@@ -108,6 +120,10 @@ export class TicketmasterAdapter implements EventSourceAdapter {
 
         const totalPages = payload.page?.totalPages ?? 0;
         if (events.length < PAGE_SIZE || page + 1 >= totalPages) break;
+        if (page + 1 >= MAX_PAGES) {
+          // The cap cut the market short: later events exist but were not seen.
+          sweep.incomplete = `${market} has more than ${MAX_PAGES} pages`;
+        }
       }
     }
   }

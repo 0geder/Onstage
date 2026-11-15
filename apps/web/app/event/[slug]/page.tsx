@@ -38,6 +38,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `${event.title} — ${event.venue.name}`,
     description,
     alternates: { canonical: publicEventUrl(WEB_BASE_URL, event.slug) },
+    // Gone from its seller: still reachable by link, but not something to surface.
+    ...(event.delistedAt ? { robots: { index: false } } : {}),
     openGraph: {
       title: event.title,
       description,
@@ -107,7 +109,13 @@ export default async function EventPage({ params }: Props) {
       </ul>
 
       <h2>Tickets</h2>
-      {event.ticketOptions.length === 0 ? (
+      {event.delistedAt ? (
+        // The seller stopped listing it, so its ticket links are dead. Nobody
+        // said why, so this is not presented as a cancellation.
+        <p className="warning" role="status">
+          This listing was removed by the ticket seller. Check with the organiser before you go.
+        </p>
+      ) : event.ticketOptions.length === 0 ? (
         <p className="muted">No ticket links have been published yet.</p>
       ) : (
         <>
@@ -310,7 +318,7 @@ function eventJsonLd(event: EventDetail) {
       name: entry.artist.name,
       url: `${WEB_BASE_URL}/artist/${entry.artist.slug}`,
     })),
-    offers: event.ticketOptions.map((option) => ({
+    offers: (event.delistedAt ? [] : event.ticketOptions).map((option) => ({
       '@type': 'Offer',
       name: option.tierName,
       url: safeUrl(option.purchaseUrl),

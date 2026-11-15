@@ -36,7 +36,10 @@ export async function upsertEvent(incoming: NormalisedEvent): Promise<UpsertOutc
     // now must not be overwritten by a feed that ranks below it.
     const blocked = blockedBy(existing.isLocked, existing.source, incoming.source);
     if (blocked) {
-      await prisma.$transaction((tx) => mergeTicketOptions(tx, existing.id, incoming));
+      await prisma.$transaction(async (tx) => {
+        await mergeTicketOptions(tx, existing.id, incoming);
+        await keepListed(tx, existing.id, { curated: true });
+      });
       return { action: 'skipped', eventId: existing.id, reason: blocked };
     }
     await prisma.$transaction((tx) => updateEvent(tx, existing.id, incoming));
@@ -52,7 +55,12 @@ export async function upsertEvent(incoming: NormalisedEvent): Promise<UpsertOutc
         'Duplicate ignored; existing record takes precedence',
       );
       // Still worth enriching: another source may carry ticket options this one lacks.
-      await prisma.$transaction((tx) => mergeTicketOptions(tx, duplicate.eventId, incoming));
+      await prisma.$transaction(async (tx) => {
+        await mergeTicketOptions(tx, duplicate.eventId, incoming);
+        await keepListed(tx, duplicate.eventId, {
+          curated: duplicate.isLocked || isManualSource(duplicate.existingSource),
+        });
+      });
       return { action: 'deduped', eventId: duplicate.eventId, reason: duplicate.reason };
     }
 
@@ -72,6 +80,28 @@ export async function upsertEvent(incoming: NormalisedEvent): Promise<UpsertOutc
 
   const eventId = await createEvent(incoming);
   return { action: 'created', eventId };
+}
+
+/**
+ * A source still lists this event, even though it may not write to it. That
+ * keeps the event live: the owning source omitting it later must not retire a
+ * show another source is still selling, so the sighting counts as a sync.
+ *
+ * Curated rows (locked, or owned by a manual source) are never retired, and
+ * their sync time is left alone; they only lose a stale delisted mark.
+ */
+async function keepListed(tx: Db, eventId: string, options: { curated: boolean }): Promise<void> {
+  if (options.curated) {
+    await tx.event.updateMany({
+      where: { id: eventId, delistedAt: { not: null } },
+      data: { delistedAt: null },
+    });
+    return;
+  }
+  await tx.event.update({
+    where: { id: eventId },
+    data: { lastSyncedAt: new Date(), delistedAt: null },
+  });
 }
 
 /** Why `incoming` may not overwrite an event owned by `owner`, or null when it may. */
@@ -157,6 +187,8 @@ async function updateEvent(
       posterImage: incoming.posterImage ?? undefined,
       sourceUrl: incoming.sourceUrl ?? undefined,
       lastSyncedAt: new Date(),
+      // Listed again, so no longer retired (see pipeline/delist.ts).
+      delistedAt: null,
       ...(options.claimIdentity ? { source: incoming.source, sourceId: incoming.sourceId } : {}),
     },
   });

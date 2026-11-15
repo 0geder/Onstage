@@ -472,6 +472,7 @@ export class AdminService {
       FROM events e
       JOIN venues v ON v.id = e.venue_id
       WHERE e.starts_at >= NOW()
+        AND e.delisted_at IS NULL
       GROUP BY v.city, v.country
       ORDER BY upcoming DESC
     `;

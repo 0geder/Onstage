@@ -8,6 +8,7 @@ import type {
   FetchWindow,
   NormalisedEvent,
   NormalisedTicketOption,
+  SweepReport,
 } from './types';
 
 /**
@@ -56,12 +57,17 @@ const COUNTRY_CODES: Record<string, string> = { 'South Africa': 'ZA' };
 
 export class QuicketAdapter implements EventSourceAdapter {
   readonly name = 'quicket' as const;
+  /** /events pages through Quicket's whole public catalogue. */
+  readonly sweepsWholeCatalogue = true;
 
   isEnabled(): boolean {
     return config.providers.quicket.enabled;
   }
 
-  async *fetchEvents(window: FetchWindow): AsyncGenerator<NormalisedEvent, void, undefined> {
+  async *fetchEvents(
+    window: FetchWindow,
+    sweep: SweepReport = {},
+  ): AsyncGenerator<NormalisedEvent, void, undefined> {
     const { baseUrl, apiKey } = config.providers.quicket;
     if (!apiKey) return;
 
@@ -77,6 +83,9 @@ export class QuicketAdapter implements EventSourceAdapter {
         );
       } catch (error) {
         logger.warn({ page, err: (error as Error).message }, 'Quicket page failed; moving on');
+        // Everything from here on went unseen, so this pass proves nothing
+        // about which listings are gone.
+        sweep.incomplete = `page ${page} failed: ${(error as Error).message}`;
         break;
       }
 

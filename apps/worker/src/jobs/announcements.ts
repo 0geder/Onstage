@@ -30,7 +30,9 @@ export async function enqueueNewEventAnnouncements(eventIds: string[]): Promise<
         lineup: { select: { artistId: true } },
       },
     });
-    if (!event || event.status === 'cancelled' || event.startsAt < new Date()) continue;
+    if (!event || event.status === 'cancelled' || event.delistedAt || event.startsAt < new Date()) {
+      continue;
+    }
 
     // Everyone following anyone on the bill, headliner or support.
     const artistIds = [event.primaryArtistId, ...event.lineup.map((entry) => entry.artistId)];

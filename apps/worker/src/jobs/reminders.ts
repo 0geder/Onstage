@@ -22,6 +22,8 @@ export async function queueOnSaleReminders(): Promise<number> {
     where: {
       onSaleAt: { gt: new Date(), lte: horizon },
       status: { notIn: ['cancelled', 'sold_out'] },
+      // A listing the seller has taken down has no on-sale to remind anyone of.
+      delistedAt: null,
     },
     select: {
       id: true,
@@ -127,6 +129,7 @@ export async function queuePriceDropAlerts(): Promise<number> {
       AND latest.price_minor < previous.price_minor
       AND e.starts_at > NOW()
       AND e.status <> 'cancelled'
+      AND e.delisted_at IS NULL
   `;
 
   let queued = 0;
@@ -186,7 +189,7 @@ export async function queueTicketsBackAlerts(): Promise<number> {
     where: {
       restockedAt: { gte: new Date(Date.now() - RESTOCK_WINDOW_MS) },
       availability: { not: 'sold_out' },
-      event: { startsAt: { gt: new Date() }, status: { not: 'cancelled' } },
+      event: { startsAt: { gt: new Date() }, status: { not: 'cancelled' }, delistedAt: null },
     },
     select: {
       tierName: true,
@@ -268,6 +271,7 @@ export async function queueWeekendDigest(): Promise<number> {
       JOIN venues v ON v.id = e.venue_id
       WHERE e.starts_at BETWEEN NOW() AND NOW() + INTERVAL '5 days'
         AND e.status <> 'cancelled'
+        AND e.delisted_at IS NULL
         AND ST_DWithin(
               v.geog,
               ST_SetSRID(ST_MakePoint(${user.homeLng}, ${user.homeLat}), 4326)::geography,

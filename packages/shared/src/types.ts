@@ -135,6 +135,12 @@ export interface EventDetail extends EventSummary {
   source: EventSourceName;
   sourceUrl: string | null;
   lastSyncedAt: string | null;
+  /**
+   * When the ticket seller stopped listing this event, or null while it is
+   * listed. Not a cancellation: nobody said why it went. Delisted events are
+   * left out of discovery but still open by link, so clients should say so.
+   */
+  delistedAt: string | null;
   venue: Venue;
   lineup: LineupEntry[];
   ticketOptions: TicketOption[];

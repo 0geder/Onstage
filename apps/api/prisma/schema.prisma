@@ -267,6 +267,11 @@ model Event {
   sourceId     String?         @map("source_id") @db.VarChar(200)
   sourceUrl    String?         @map("source_url")
   lastSyncedAt DateTime?       @map("last_synced_at") @db.Timestamptz(6)
+  /// Set by ingestion when the source stopped listing the event: a complete
+  /// sweep of the source no longer returned it. Not a cancellation — we do not
+  /// know why it went. Hidden from discovery, still reachable by link. Cleared
+  /// as soon as any source returns the event again.
+  delistedAt   DateTime?       @map("delisted_at") @db.Timestamptz(6)
 
   /// When tickets go on sale. Drives the configurable on-sale reminder.
   onSaleAt DateTime? @map("on_sale_at") @db.Timestamptz(6)
@@ -615,6 +620,8 @@ model IngestionRun {
   skipped    Int             @default(0)
   deduped    Int             @default(0)
   failed     Int             @default(0)
+  /// Events retired because this (complete) sweep no longer listed them.
+  delisted   Int             @default(0)
   error      String?
 
   @@index([source, startedAt])

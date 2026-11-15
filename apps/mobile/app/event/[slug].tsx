@@ -80,7 +80,10 @@ export default function EventScreen() {
   }
 
   const data = event.data;
-  const soldOut = data.status === 'sold_out';
+  // The seller stopped listing it. Its ticket links are dead and nobody said
+  // why it went, so the tickets area says so instead of offering to sell.
+  const delisted = data.delistedAt !== null;
+  const soldOut = data.status === 'sold_out' && !delisted;
   const streams = LIVESTREAM_PLATFORMS.filter((platform) => data.livestreamLinks?.[platform]);
   const startsAt = new Date(data.startsAt).getTime();
   const isLive = openedAt >= startsAt && openedAt < startsAt + LIVE_WINDOW_MS;
@@ -248,13 +251,19 @@ export default function EventScreen() {
 
         <SectionHeading title={t('event.tickets')} />
         <View style={styles.tickets}>
-          {data.priceRange ? (
+          {delisted ? (
+            <View style={styles.delistedNotice} accessibilityRole="alert">
+              <Text style={styles.delistedText}>{t('event.delisted')}</Text>
+            </View>
+          ) : null}
+
+          {delisted ? null : data.priceRange ? (
             <Text style={styles.priceRange}>
               {formatPriceRange(data.priceRange, currentLocale())}
             </Text>
           ) : null}
 
-          {data.ticketOptions.length === 0 ? (
+          {delisted ? null : data.ticketOptions.length === 0 ? (
             <Text style={styles.mutedBody}>{t('event.noTickets')}</Text>
           ) : (
             data.ticketOptions.map((option) => (
@@ -510,6 +519,12 @@ const styles = StyleSheet.create({
   ticketSeller: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   ticketMeta: { ...typography.caption, color: colors.textFaint },
   disclaimer: { ...typography.caption, color: colors.textFaint, lineHeight: 17 },
+  delistedNotice: {
+    backgroundColor: colors.warningSurface,
+    borderRadius: radii.md,
+    padding: spacing.md,
+  },
+  delistedText: { ...typography.body, color: colors.warning },
   mutedBody: { ...typography.body, color: colors.textMuted },
 
   travel: { paddingHorizontal: spacing.lg, gap: spacing.md },

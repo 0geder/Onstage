@@ -48,6 +48,8 @@ export async function confirmAttendance(): Promise<number> {
         WHERE e.starts_at < ${cutoff}
           AND e.starts_at >= ${floor}
           AND e.status NOT IN ('cancelled', 'postponed')
+          -- A listing that vanished from its seller may never have gone ahead.
+          AND e.delisted_at IS NULL
           AND EXISTS (SELECT 1 FROM attendances a WHERE a.event_id = e.id AND a.state = 'going')
         ORDER BY e.starts_at DESC
         LIMIT ${CONFIRM_BATCH}
@@ -94,7 +96,7 @@ export async function promptLiveRatings(): Promise<number> {
   const attendances = await prisma.attendance.findMany({
     where: {
       state: 'attended',
-      event: { startsAt: { gte: from, lte: to } },
+      event: { startsAt: { gte: from, lte: to }, delistedAt: null },
     },
     select: {
       userId: true,
