@@ -5,6 +5,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { useRef, useState, type ComponentRef } from 'react';
 import { Alert, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Camera, Map as VenueMap, ViewAnnotation } from '@maplibre/maplibre-react-native';
 import {
   formatEventDateTime,
@@ -39,6 +40,7 @@ import {
   StatusBadge,
 } from '../../src/components/ui';
 import { currentLocale } from '../../src/i18n';
+import { useWorkingImage } from '../../src/lib/working-image';
 import { colors, radii, spacing, typography } from '../../src/theme';
 
 const WEB_BASE = process.env.EXPO_PUBLIC_WEB_BASE_URL ?? 'https://onstage.co.za';
@@ -66,6 +68,8 @@ export default function EventScreen() {
   const attendance = useSetAttendance(eventId, String(slug));
   const router = useRouter();
   const ticketLink = useTicketLink(eventId);
+  const poster = useWorkingImage(event.data?.posterImage);
+  const insets = useSafeAreaInsets();
 
   if (event.isLoading) return <Loading />;
   if (event.isError || !event.data) {
@@ -137,11 +141,17 @@ export default function EventScreen() {
 
   return (
     <Screen>
-      <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: spacing.xxl }}>
-        {data.posterImage ? (
-          <Image source={{ uri: data.posterImage }} style={styles.poster} contentFit="cover" />
+      <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: spacing.xxl + insets.bottom }}>
+        {poster.uri ? (
+          <Image
+            source={{ uri: poster.uri }}
+            style={styles.poster}
+            contentFit="cover"
+            onError={poster.onError}
+          />
         ) : (
-          <View style={[styles.poster, { backgroundColor: colors.surfaceRaised }]} />
+          // No artwork: a short band under the back button, not a big empty frame.
+          <View style={styles.posterMissing} />
         )}
 
         <View style={styles.header}>
@@ -484,6 +494,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   poster: { width: '100%', height: 320 },
+  posterMissing: { width: '100%', height: 96, backgroundColor: colors.surfaceRaised },
   header: { padding: spacing.lg, gap: spacing.sm },
   badgeRow: { flexDirection: 'row', gap: spacing.sm },
   title: { ...typography.display, color: colors.text },
