@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useBadges, useFollowing, useMe, usePlans, useReferralCode } from '../../src/api/hooks';
 import { ApiError } from '../../src/api/client';
 import { signOutUser } from '../../src/lib/auth';
+import { useWorkingImage } from '../../src/lib/working-image';
 import { ArtistTile } from '../../src/components/cards';
 import {
   Avatar,
@@ -102,27 +103,12 @@ export default function ProfileScreen() {
             <SectionHeading title={t('profile.yourGigs')} />
             <View style={styles.grid}>
               {plans.data?.map(({ event }) => (
-                <Pressable
+                <GigTile
                   key={event.id}
-                  accessibilityRole="link"
-                  accessibilityLabel={event.title}
+                  title={event.title}
+                  posterImage={event.posterImage}
                   onPress={() => router.push(`/event/${event.slug}`)}
-                  style={styles.gridCell}
-                >
-                  {event.posterImage ? (
-                    <Image
-                      source={{ uri: event.posterImage }}
-                      style={styles.gridImage}
-                      contentFit="cover"
-                    />
-                  ) : (
-                    <View style={[styles.gridImage, styles.gridFallback]}>
-                      <Text style={styles.gridTitle} numberOfLines={3}>
-                        {event.title}
-                      </Text>
-                    </View>
-                  )}
-                </Pressable>
+                />
               ))}
             </View>
           </View>
@@ -224,6 +210,42 @@ function SettingsLink({ href, label }: { href: string; label: string }) {
         )}
       </Pressable>
     </Link>
+  );
+}
+
+/** One of your gigs: its poster, or its name when the poster is missing or dead. */
+function GigTile({
+  title,
+  posterImage,
+  onPress,
+}: {
+  title: string;
+  posterImage: string | null;
+  onPress: () => void;
+}) {
+  const poster = useWorkingImage(posterImage);
+  return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={title}
+      onPress={onPress}
+      style={styles.gridCell}
+    >
+      {poster.uri ? (
+        <Image
+          source={{ uri: poster.uri }}
+          style={styles.gridImage}
+          contentFit="cover"
+          onError={poster.onError}
+        />
+      ) : (
+        <View style={[styles.gridImage, styles.gridFallback]}>
+          <Text style={styles.gridTitle} numberOfLines={3}>
+            {title}
+          </Text>
+        </View>
+      )}
+    </Pressable>
   );
 }
 
