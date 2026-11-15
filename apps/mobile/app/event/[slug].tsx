@@ -156,7 +156,8 @@ export default function EventScreen() {
 
         <View style={styles.header}>
           <View style={styles.badgeRow}>
-            <StatusBadge status={data.status} />
+            {/* "On sale" is the seller's last word, and the seller has withdrawn it. */}
+            {delisted ? null : <StatusBadge status={data.status} />}
             {data.isPromoted ? <PromotedBadge /> : null}
           </View>
 

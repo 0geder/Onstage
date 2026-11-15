@@ -32,7 +32,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const when = formatEventDateTime(event.startsAt, event.localTimezone);
   const description =
     `${event.primaryArtist.name} at ${event.venue.name}, ${event.venue.city} on ${when}. ` +
-    `${EVENT_STATUS_LABELS[event.status]}. Line-up, tickets and directions on Onstage.`;
+    (event.delistedAt ? '' : `${EVENT_STATUS_LABELS[event.status]}. `) +
+    'Line-up, tickets and directions on Onstage.';
 
   return {
     title: `${event.title} — ${event.venue.name}`,
@@ -75,7 +76,9 @@ export default async function EventPage({ params }: Props) {
       <h1>{event.title}</h1>
 
       <p>
-        <span className="badge">{EVENT_STATUS_LABELS[event.status]}</span>{' '}
+        {event.delistedAt ? null : (
+          <span className="badge">{EVENT_STATUS_LABELS[event.status]}</span>
+        )}{' '}
         {event.isPromoted ? <span className="badge badge-promoted">Promoted</span> : null}
       </p>
 
